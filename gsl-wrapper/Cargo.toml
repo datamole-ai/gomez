@@ -1,0 +1,10 @@
+[package]
+name = "gsl-wrapper"
+version = "0.1.0"
+authors = ["Petr Nevyhoštěný <petr.nevyhosteny@gmail.com>"]
+description = "A Rust wrapper for the subset of the GNU scientific library used solely for benchmarking the Gomez library"
+license = "GPL-3.0+"
+edition = "2021"
+
+[dependencies]
+gsl-sys = { path = "gsl-sys" }

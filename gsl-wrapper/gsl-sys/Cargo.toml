@@ -1,0 +1,10 @@
+[package]
+name = "gsl-sys"
+version = "0.1.0"
+authors = ["Petr Nevyhoštěný <petr.nevyhosteny@gmail.com>"]
+description = "A Rust binding for the subset of the GNU scientific library used solely for benchmarking the Gomez library"
+license = "GPL-3.0+"
+edition = "2021"
+
+[build-dependencies]
+bindgen = "0.57"
