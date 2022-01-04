@@ -255,18 +255,9 @@
 //! * High-level drivers encapsulating the low-level API for users that do not
 //!   need the fine-grained control.
 //!
-//! ## Optional features
-//!
-//! * `log` -- Brings in logging with the [`log`](https://crates.io/crates/log)
-//!   crate. Gomez uses *debug* level for all messages so that problems with
-//!   convergence can be debugged.
-//!
 //! ## License
 //!
 //! Licensed under MIT.
-
-#[cfg(feature = "log")]
-extern crate log_package as log;
 
 pub mod core;
 pub mod derivatives;
