@@ -58,7 +58,7 @@ where
         let size = size.get(f);
 
         let mut individuals = vec![OVector::zeros_generic(f.dim(), U1::name()); size];
-        initializer.init_all(dom, rng, individuals.iter_mut());
+        initializer.init_all(f, dom, rng, individuals.iter_mut());
 
         let errors = vec![F::Scalar::zero(); size];
         let sorted = (0..size).collect();
@@ -496,6 +496,7 @@ pub trait PopulationInit<F: System> {
     /// Initialize one individual in the population.
     fn init<R: Rng + ?Sized, S>(
         &self,
+        f: &F,
         dom: &Domain<F::Scalar>,
         rng: &mut R,
         x: &mut Vector<F::Scalar, F::Dim, S>,
@@ -505,6 +506,7 @@ pub trait PopulationInit<F: System> {
     /// Initialize the whole population.
     fn init_all<'pop, R: Rng + ?Sized, I, S>(
         &self,
+        f: &F,
         dom: &Domain<F::Scalar>,
         rng: &mut R,
         population: I,
@@ -513,7 +515,7 @@ pub trait PopulationInit<F: System> {
         S: StorageMut<F::Scalar, F::Dim> + 'pop,
     {
         for x in population {
-            self.init(dom, rng, x);
+            self.init(f, dom, rng, x);
         }
     }
 }
@@ -559,6 +561,7 @@ where
 {
     fn init<R: Rng + ?Sized, S>(
         &self,
+        _f: &F,
         dom: &Domain<F::Scalar>,
         rng: &mut R,
         x: &mut Vector<F::Scalar, F::Dim, S>,
