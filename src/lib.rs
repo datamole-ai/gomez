@@ -259,6 +259,7 @@
 //!
 //! Licensed under MIT.
 
+pub mod analysis;
 pub mod core;
 pub mod derivatives;
 pub mod population;
