@@ -53,7 +53,7 @@ pub struct CuckooOptions<F: System, I: PopulationInit<F>> {
     #[getset(get_copy = "pub", set = "pub")]
     population_size: PopulationSize,
     /// Population initializer. Default: [`UniformInit`].
-    #[getset(get = "pub", set = "pub")]
+    #[getset(get = "pub")]
     population_init: I,
     /// Scale factor when doing local search. Default: `0.05`.
     #[getset(get_copy = "pub", set = "pub")]
@@ -71,19 +71,26 @@ pub struct CuckooOptions<F: System, I: PopulationInit<F>> {
     local_walk_dir: LocalWalkDirection,
 }
 
-impl<F: System> Default for CuckooOptions<F, UniformInit<F>>
-where
-    F::Scalar: SampleUniform,
-{
-    fn default() -> Self {
+impl<F: System, I: PopulationInit<F>> CuckooOptions<F, I> {
+    /// Initializes the options with given population initializer.
+    pub fn with_population_init(population_init: I) -> Self {
         Self {
             population_size: PopulationSize::Adaptive,
-            population_init: UniformInit::default(),
+            population_init,
             scale_factor: convert(0.05),
             abandon_prob: 0.25,
             elite_fraction: 0.15,
             local_walk_dir: LocalWalkDirection::Scaled,
         }
+    }
+}
+
+impl<F: System> Default for CuckooOptions<F, UniformInit<F>>
+where
+    F::Scalar: SampleUniform,
+{
+    fn default() -> Self {
+        Self::with_population_init(UniformInit::default())
     }
 }
 
