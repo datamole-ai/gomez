@@ -2,7 +2,7 @@
 //!
 //! Based on \[1\]. The analysis provide insights for focusing on which
 //! variables need to be improved regarding initial guess for Newton-based
-//! algorithms (e.g., [`TrustRegion`](crate::trust_region)).
+//! algorithms (e.g., [`TrustRegion`](crate::solver::trust_region)).
 //!
 //! \[1\] [On the Choice of Initial Guesses for the Newton-Raphson
 //! Algorithm](https://arxiv.org/abs/1911.12433)
