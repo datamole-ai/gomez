@@ -241,7 +241,8 @@ where
 
         let fx_norm = fx.norm();
 
-        if *delta == F::Scalar::zero() {
+        let estimate_delta = *delta == F::Scalar::zero();
+        if estimate_delta {
             // Zero delta signifies that the initial delta is to be set
             // automatically and it has not been done yet.
             //
@@ -280,6 +281,7 @@ where
         let is_newton_valid = r.solve_upper_triangular_mut(newton);
 
         if !is_newton_valid {
+            // TODO: Moore-Penrose pseudoinverse?
             debug!(
                 "Newton step is invalid for ill-defined Jacobian (zero columns: {:?})",
                 jac.column_iter()
@@ -340,7 +342,7 @@ where
                 // Compute tau = -(grad F)^T g / || F'(x) g ||^2.
                 jac.mul_to(cauchy, temp);
                 let jac_g_norm2 = temp.norm_squared();
-                let grad_neg_g = grad_neg.tr_mul(cauchy)[(0, 0)];
+                let grad_neg_g = grad_neg.dot(cauchy);
                 let tau = grad_neg_g / jac_g_norm2;
 
                 // Scale the steepest descent to the Cauchy point.
@@ -355,7 +357,7 @@ where
                 if cauchy_scaled_norm >= *delta {
                     // Cauchy point is outside the trust region. We take the
                     // steepest gradient descent to the trust region boundary.
-                    p.copy_from(cauchy_scaled);
+                    p.copy_from(cauchy);
                     *p *= *delta / cauchy_scaled_norm;
                     debug!(
                         "take scaled Cauchy to trust region-boundary: {:?}",
@@ -405,7 +407,7 @@ where
 
                     temp.copy_from(diff_scaled);
                     temp.component_mul_assign(scale);
-                    let b = cauchy.tr_mul(temp)[(0, 0)];
+                    let b = cauchy.dot(temp);
 
                     let c_neg = *delta * *delta - cauchy_scaled_norm * cauchy_scaled_norm;
 
@@ -426,6 +428,8 @@ where
                     debug!("take dogleg (factor = {}): {:?}", alpha, p.as_slice());
                     StepType::Dogleg
                 } else {
+                    let temp = cauchy_scaled;
+
                     // Since F'(x) cannot be inverted so the Newton step is
                     // undefined, we need to fallback to Levenberg-Marquardt
                     // which overcomes this issue but at higher computational
@@ -448,12 +452,6 @@ where
                     // where k denotes the current iteration. Such choice
                     // ensures that lambda is not large when the point is far
                     // from the solution (i.e., for large || F(x) ||).
-
-                    // TODO: The choice of lambda does not guarantee that || D p
-                    // || <= delta. I believe that to achieve this we can use a
-                    // similar approach as is described in dogleg step path. So,
-                    // first check if it is in the trust region and scale it
-                    // appropriately if it is not.
 
                     // Determine lambda.
                     let d = if fx_norm >= F::Scalar::one() {
@@ -484,6 +482,20 @@ where
                             "Levenberg-Marquardt step is invalid for ill-defined matrix B (lambda = {})",
                             lambda
                         );
+                    }
+
+                    // Scale p to be in the trust region, i.e., || D p || <=
+                    // delta.
+                    let p_scaled = temp;
+                    p_scaled.copy_from(scale);
+                    p_scaled.component_mul_assign(p);
+
+                    let p_scaled_norm = p_scaled.norm();
+
+                    if p_scaled_norm > *delta {
+                        // The original step was outside, scale it to the
+                        // boundary.
+                        *p *= *delta / p_scaled_norm;
                     }
 
                     debug!(
