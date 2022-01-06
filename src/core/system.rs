@@ -1,52 +1,3 @@
-//! Abstractions and types for defining equation systems.
-//!
-//! # Defining a system
-//!
-//! A system is any type that implements [`System`] trait. There are two
-//! required associated types (scalar type and dimension type) and two required
-//! methods: [`apply_mut`](System::apply_mut) and [`dim`](System::dim).
-//!
-//! ```rust
-//! use gomez::nalgebra as na;
-//! use gomez::prelude::*;
-//! use na::{Dim, DimName};
-//!
-//! // A problem is represented by a type.
-//! struct Rosenbrock {
-//!     a: f64,
-//!     b: f64,
-//! }
-//!
-//! impl System for Rosenbrock {
-//!     // The numeric type. Usually f64 or f32.
-//!     type Scalar = f64;
-//!     // The dimension of the problem. Can be either statically known or dynamic.
-//!     type Dim = na::U2;
-//!
-//!     // Apply trial values of variables to the system.
-//!     fn apply_mut<Sx, Sfx>(
-//!         &self,
-//!         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
-//!         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-//!     ) -> Result<(), SystemError>
-//!     where
-//!         Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
-//!         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
-//!     {
-//!         // Compute the residuals of all equations.
-//!         fx[0] = (self.a - x[0]).powi(2);
-//!         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
-//!
-//!         Ok(())
-//!     }
-//!
-//!     // Return the actual dimension of the system.
-//!     fn dim(&self) -> Self::Dim {
-//!         na::U2::name()
-//!     }
-//! }
-//! ```
-
 use nalgebra::{
     allocator::Allocator,
     storage::{Storage, StorageMut},
@@ -73,6 +24,53 @@ pub enum SystemError {
 }
 
 /// The trait for defining equations systems.
+///
+/// ## Defining a system
+///
+/// A system is any type that implements [`System`] trait. There are two
+/// required associated types (scalar type and dimension type) and two required
+/// methods: [`apply_mut`](System::apply_mut) and [`dim`](System::dim).
+///
+/// ```rust
+/// use gomez::nalgebra as na;
+/// use gomez::prelude::*;
+/// use na::{Dim, DimName};
+///
+/// // A problem is represented by a type.
+/// struct Rosenbrock {
+///     a: f64,
+///     b: f64,
+/// }
+///
+/// impl System for Rosenbrock {
+///     // The numeric type. Usually f64 or f32.
+///     type Scalar = f64;
+///     // The dimension of the problem. Can be either statically known or dynamic.
+///     type Dim = na::U2;
+///
+///     // Apply trial values of variables to the system.
+///     fn apply_mut<Sx, Sfx>(
+///         &self,
+///         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
+///         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
+///     ) -> Result<(), SystemError>
+///     where
+///         Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
+///         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
+///     {
+///         // Compute the residuals of all equations.
+///         fx[0] = (self.a - x[0]).powi(2);
+///         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
+///
+///         Ok(())
+///     }
+///
+///     // Return the actual dimension of the system.
+///     fn dim(&self) -> Self::Dim {
+///         na::U2::name()
+///     }
+/// }
+/// ```
 pub trait System {
     /// Type of the scalar, usually f32 or f64.
     type Scalar: RealField;
