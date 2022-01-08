@@ -77,6 +77,9 @@ pub struct TrustRegionOptions<F: System> {
     /// Number of step rejections that are allowed to happen before returning
     /// [`TrustRegionError::NoProgress`] error. Default: `10`.
     rejections_thresh: usize,
+    /// Determines whether steps that increase the error can be accepted.
+    /// Default: `true`.
+    allow_ascent: bool,
 }
 
 impl<F: System> Default for TrustRegionOptions<F> {
@@ -90,6 +93,7 @@ impl<F: System> Default for TrustRegionOptions<F> {
             expand_thresh: convert(0.75),
             accept_thresh: convert(0.0001),
             rejections_thresh: 10,
+            allow_ascent: true,
         }
     }
 }
@@ -202,6 +206,7 @@ where
             expand_thresh,
             accept_thresh,
             rejections_thresh,
+            allow_ascent,
             ..
         } = self.options;
 
@@ -535,13 +540,29 @@ where
             *temp += &*fx;
             let predicted = fx_norm - temp.norm();
 
-            let gain_ratio = if predicted == F::Scalar::zero() {
-                debug!("predicted gain = 0");
+            let deny = if allow_ascent {
+                // If ascent is allowed, then check only for zero, which would
+                // make the gain ratio calculation ill-defined.
+                predicted == F::Scalar::zero()
+            } else {
+                // If ascent is not allowed, test positivity of the predicted
+                // gain. Note that even if the actual reduction was positive,
+                // the step would be rejected anyway because the gain ratio
+                // would be negative.
+                predicted <= F::Scalar::zero()
+            };
+
+            let gain_ratio = if deny {
+                if allow_ascent {
+                    debug!("predicted gain = 0");
+                } else {
+                    debug!("predicted gain <= 0");
+                }
                 F::Scalar::zero()
             } else {
                 let actual = fx_norm - fx_trial_norm;
                 let gain_ratio = actual / predicted;
-                debug!("gain ratio = {} / {} = {}", actual, predicted, gain_ratio,);
+                debug!("gain ratio = {} / {} = {}", actual, predicted, gain_ratio);
 
                 gain_ratio
             };
