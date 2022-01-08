@@ -22,12 +22,13 @@
 //!
 //! ## Algorithms
 //!
-//! * [Trust region](solver::TrustRegion) -- Recommended method to be used as a
+//! * [Trust region](solver::trust_region) -- Recommended method to be used as a
 //!   default and it will just work in most of the cases.
-//! * [Cuckoo search](solver::Cuckoo) -- A global optimization algorithm useful
+//! * [Cuckoo search](solver::cuckoo) -- A global optimization algorithm useful
 //!   for initial guesses search in combination with a numerical solver.
-//! * [Nelder-Mead](solver::NelderMead) -- Not generally recommended, but may be
-//!   useful for low-dimensionality problems with ill-defined Jacobian matrix.
+//! * [Nelder-Mead](solver::nelder_mead) -- Not generally recommended, but may
+//!   be useful for low-dimensionality problems with ill-defined Jacobian
+//!   matrix.
 //!
 //! ## Problem
 //!
