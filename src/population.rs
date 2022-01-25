@@ -212,7 +212,7 @@ where
     Sx: Storage<F::Scalar, F::Dim>,
     Sfx: StorageMut<F::Scalar, F::Dim>,
 {
-    f.apply_mut(x, fx)?;
+    f.apply(x, fx)?;
     Ok(fx.norm())
 }
 

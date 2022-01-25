@@ -105,7 +105,7 @@ where
 
             // Update the point.
             x[j] = xj + step;
-            f.apply_mut(x, &mut col)?;
+            f.apply(x, &mut col)?;
 
             // Compute the derivative approximation: J[i, j] = (F(x + e_j * step_j) - F(x)) / step_j.
             col -= fx;
@@ -145,7 +145,7 @@ mod tests {
         let mut fx = dvector![0.0, 0.0];
 
         let func = ExtendedRosenbrock::new(2);
-        func.apply_mut(&x, &mut fx).unwrap();
+        func.apply(&x, &mut fx).unwrap();
         let jac = Jacobian::new(&func, &mut x, &scale, &fx);
 
         assert!(jac.is_ok());
@@ -162,7 +162,7 @@ mod tests {
         let mut fx = dvector![0.0, 0.0, 0.0, 0.0];
 
         let func = ExtendedPowell::new(4);
-        func.apply_mut(&x, &mut fx).unwrap();
+        func.apply(&x, &mut fx).unwrap();
         let jac = Jacobian::new(&func, &mut x, &scale, &fx);
 
         assert!(jac.is_ok());

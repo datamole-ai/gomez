@@ -58,7 +58,7 @@ where
         Sx: Storage<Self::Scalar, Self::Dim>,
     {
         let mut fx = x.clone_owned();
-        if self.apply_mut(x, &mut fx).is_ok() {
+        if self.apply(x, &mut fx).is_ok() {
             fx.iter().all(|fxi| fxi.abs() <= eps)
         } else {
             false
@@ -116,7 +116,7 @@ impl System for ExtendedRosenbrock {
     type Scalar = f64;
     type Dim = Dynamic;
 
-    fn apply_mut<Sx, Sfx>(
+    fn apply<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
@@ -222,7 +222,7 @@ impl System for ExtendedPowell {
     type Scalar = f64;
     type Dim = Dynamic;
 
-    fn apply_mut<Sx, Sfx>(
+    fn apply<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
@@ -301,7 +301,7 @@ impl System for BullardBiegler {
     type Scalar = f64;
     type Dim = U2;
 
-    fn apply_mut<Sx, Sfx>(
+    fn apply<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
@@ -371,7 +371,7 @@ impl System for Sphere {
     type Scalar = f64;
     type Dim = Dynamic;
 
-    fn apply_mut<Sx, Sfx>(
+    fn apply<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
@@ -440,7 +440,7 @@ impl System for Brown {
     type Scalar = f64;
     type Dim = Dynamic;
 
-    fn apply_mut<Sx, Sfx>(
+    fn apply<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
@@ -503,7 +503,7 @@ impl System for Exponential {
     type Scalar = f64;
     type Dim = Dynamic;
 
-    fn apply_mut<Sx, Sfx>(
+    fn apply<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,

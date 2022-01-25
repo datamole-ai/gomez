@@ -314,7 +314,7 @@ where
 
         // Assign te best individual.
         x.copy_from(&population.iter_sorted().next().unwrap());
-        f.apply_mut(x, fx)?;
+        f.apply(x, fx)?;
 
         let report = population.report();
 

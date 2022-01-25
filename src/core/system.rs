@@ -29,7 +29,7 @@ pub enum SystemError {
 ///
 /// A system is any type that implements [`System`] trait. There are two
 /// required associated types (scalar type and dimension type) and two required
-/// methods: [`apply_mut`](System::apply_mut) and [`dim`](System::dim).
+/// methods: [`apply`](System::apply) and [`dim`](System::dim).
 ///
 /// ```rust
 /// use gomez::nalgebra as na;
@@ -49,7 +49,7 @@ pub enum SystemError {
 ///     type Dim = na::U2;
 ///
 ///     // Apply trial values of variables to the system.
-///     fn apply_mut<Sx, Sfx>(
+///     fn apply<Sx, Sfx>(
 ///         &self,
 ///         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
 ///         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
@@ -81,7 +81,7 @@ pub trait System {
     type Dim: Dim;
 
     /// Calculate the residuals of the system given values of the variables.
-    fn apply_mut<Sx, Sfx>(
+    fn apply<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
@@ -104,7 +104,7 @@ pub trait System {
 /// Some extensions methods for the [`System`] that may be found useful.
 pub trait SystemExt: System {
     /// Calculate the residuals and return the squared norm of the residuals.
-    fn apply_mut_norm_squared<Sx, Sfx>(
+    fn apply_norm_squared<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
@@ -115,7 +115,7 @@ pub trait SystemExt: System {
 }
 
 impl<F: System> SystemExt for F {
-    fn apply_mut_norm_squared<Sx, Sfx>(
+    fn apply_norm_squared<Sx, Sfx>(
         &self,
         x: &Vector<F::Scalar, F::Dim, Sx>,
         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
@@ -124,7 +124,7 @@ impl<F: System> SystemExt for F {
         Sx: Storage<Self::Scalar, Self::Dim>,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
-        self.apply_mut(x, fx)?;
+        self.apply(x, fx)?;
         Ok(fx.norm_squared())
     }
 }
@@ -189,7 +189,7 @@ where
     type Scalar = F::Scalar;
     type Dim = F::Dim;
 
-    fn apply_mut<Sx, Sfx>(
+    fn apply<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
@@ -201,7 +201,7 @@ where
         // TODO: RepulsiveSystem should adjust the residuals of the inner system
         // such that solvers tend to go away from the roots stored in the
         // archive.
-        self.f.apply_mut(x, fx)
+        self.f.apply(x, fx)
     }
 
     fn dim(&self) -> Self::Dim {

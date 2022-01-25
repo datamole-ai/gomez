@@ -13,7 +13,7 @@ impl System for Rosenbrock {
     type Scalar = f64;
     type Dim = na::U2;
 
-    fn apply_mut<Sx, Sfx>(
+    fn apply<Sx, Sfx>(
         &self,
         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,

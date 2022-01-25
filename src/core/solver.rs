@@ -61,7 +61,7 @@ use super::system::System;
 ///         });
 ///
 ///         // We must compute the residuals.
-///         f.apply_mut(x, fx)?;
+///         f.apply(x, fx)?;
 ///
 ///         Ok(())
 ///     }
@@ -81,7 +81,7 @@ pub trait Solver<F: System> {
     /// The value of `x` is the current values of variables. After the method
     /// returns, `x` should hold the variable values of the performed step and
     /// `fx` *must* contain residuals of that step as computed by
-    /// [`System::apply_mut`].
+    /// [`System::apply`].
     ///
     /// It is implementation error not to compute the residuals of the computed
     /// step.

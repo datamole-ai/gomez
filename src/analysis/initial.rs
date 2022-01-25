@@ -59,7 +59,7 @@ where
         let scale = OVector::from_iterator_generic(f.dim(), U1::name(), scale_iter);
 
         // Compute F'(x) in the initial point.
-        f.apply_mut(x, fx)?;
+        f.apply(x, fx)?;
         let jac1 = Jacobian::new(f, x, &scale, fx)?;
 
         // Compute Newton step.
@@ -74,7 +74,7 @@ where
         *x += p;
 
         // Compute F'(x) after one Newton step.
-        f.apply_mut(x, fx)?;
+        f.apply(x, fx)?;
         let jac2 = Jacobian::new(f, x, &scale, fx)?;
 
         // Linear variables have no effect on the Jacobian matrix. They can be
