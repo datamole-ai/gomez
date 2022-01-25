@@ -249,7 +249,7 @@ where
             na::U1::name(),
         );
 
-        match self.f.apply_mut(&x, &mut fx) {
+        match self.f.apply(&x, &mut fx) {
             Ok(_) => GslStatus::ok(),
             Err(_) => GslStatus::err(GslError::BadFunc),
         }

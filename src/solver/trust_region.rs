@@ -241,7 +241,7 @@ where
         }
 
         // Compute F(x) and F'(x).
-        f.apply_mut(x, fx)?;
+        f.apply(x, fx)?;
         jac.compute(f, x, scale, fx)?;
 
         let fx_norm = fx.norm();
@@ -531,7 +531,7 @@ where
         }
 
         // Compute F(x').
-        let is_trial_valid = f.apply_mut(x_trial, fx_trial).is_ok();
+        let is_trial_valid = f.apply(x_trial, fx_trial).is_ok();
         let fx_trial_norm = fx_trial.norm();
 
         let gain_ratio = if is_trial_valid {

@@ -219,13 +219,13 @@ where
         if simplex.is_empty() {
             // Simplex initialization.
             simplex.push(x.clone_owned());
-            errors.push(f.apply_mut_norm_squared(x, fx)?);
+            errors.push(f.apply_norm_squared(x, fx)?);
 
             for j in 0..n {
                 let mut xi = x.clone_owned();
                 xi[j] = dom.vars()[j].clamp(xi[j] + scale[j]);
 
-                errors.push(f.apply_mut_norm_squared(&xi, fx)?);
+                errors.push(f.apply_norm_squared(&xi, fx)?);
                 simplex.push(xi);
             }
 
@@ -268,7 +268,7 @@ where
         // Perform one of possible simplex transformations.
         reflection.on_line2_mut(centroid, &simplex[sort_perm[n]], reflection_coeff);
         let reflection_not_feasible = reflection.project(dom);
-        let reflection_error = f.apply_mut_norm_squared(reflection, fx)?;
+        let reflection_error = f.apply_norm_squared(reflection, fx)?;
 
         #[allow(clippy::suspicious_else_formatting)]
         let (transformation, not_feasible) = if errors[sort_perm[0]] <= reflection_error
@@ -284,7 +284,7 @@ where
             // farther along this direction.
             expansion.on_line2_mut(centroid, &simplex[sort_perm[n]], expansion_coeff);
             let expansion_not_feasible = expansion.project(dom);
-            let expansion_error = f.apply_mut_norm_squared(expansion, fx)?;
+            let expansion_error = f.apply_norm_squared(expansion, fx)?;
 
             if expansion_error < reflection_error {
                 // Expansion indeed help, replace the worst point.
@@ -309,7 +309,7 @@ where
                 // Try to perform outer contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], outer_contraction_coeff);
                 let contraction_not_feasible = contraction.project(dom);
-                let contraction_error = f.apply_mut_norm_squared(contraction, fx)?;
+                let contraction_error = f.apply_norm_squared(contraction, fx)?;
 
                 if contraction_error <= reflection_error {
                     // Use the contracted point instead of the reflected point
@@ -327,7 +327,7 @@ where
                 // Try to perform inner contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], inner_contraction_coeff);
                 let contraction_not_feasible = contraction.project(dom);
-                let contraction_error = f.apply_mut_norm_squared(contraction, fx)?;
+                let contraction_error = f.apply_norm_squared(contraction, fx)?;
 
                 if contraction_error <= errors[sort_perm[n]] {
                     // The contracted point is better than the worst point.
@@ -352,7 +352,7 @@ where
                     for i in 1..=n {
                         let xi = &mut simplex[sort_perm[i]];
                         xi.on_line_mut(contraction, shrink_coeff);
-                        errors[sort_perm[i]] = f.apply_mut_norm_squared(xi, fx)?;
+                        errors[sort_perm[i]] = f.apply_norm_squared(xi, fx)?;
                     }
 
                     (Transformation::Shrinkage, false)
@@ -377,7 +377,7 @@ where
 
         // Return the best simplex point.
         x.copy_from(&simplex[sort_perm[0]]);
-        f.apply_mut(x, fx)?;
+        f.apply(x, fx)?;
 
         if transformation == Transformation::Shrinkage || not_feasible {
             // Check whether the simplex collapsed or not. It can happen only
