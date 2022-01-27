@@ -1,35 +1,21 @@
 use nalgebra::{
     allocator::Allocator,
     storage::{Storage, StorageMut},
-    DefaultAllocator, Dim, OVector, RealField, Vector,
+    DefaultAllocator, OVector, Vector,
 };
-use thiserror::Error;
 
-use super::domain::Domain;
-
-/// Error encountered while applying variables to the system.
-#[derive(Debug, Error)]
-pub enum SystemError {
-    /// The number of variables does not match the dimensionality
-    /// ([`System::dim`]) of the system.
-    #[error("invalid dimensionality")]
-    InvalidDimensionality,
-    /// An invalid value (NaN, positive or negative infinity) of a residual
-    /// occurred.
-    #[error("invalid value encountered")]
-    InvalidValue,
-    /// A custom error specific to the system.
-    #[error("{0}")]
-    Custom(Box<dyn std::error::Error>),
-}
+use super::{
+    base::{Error, Problem},
+    domain::Domain,
+};
 
 /// The trait for defining equations systems.
 ///
 /// ## Defining a system
 ///
-/// A system is any type that implements [`System`] trait. There are two
-/// required associated types (scalar type and dimension type) and two required
-/// methods: [`apply`](System::apply) and [`dim`](System::dim).
+/// A system is any type that implements [`System`] and [`Problem`] traits.
+/// There are two required associated types (scalar type and dimension type) and
+/// two required methods: [`eval`](System::eval) and [`dim`](Problem::dim).
 ///
 /// ```rust
 /// use gomez::nalgebra as na;
@@ -42,18 +28,25 @@ pub enum SystemError {
 ///     b: f64,
 /// }
 ///
-/// impl System for Rosenbrock {
+/// impl Problem for Rosenbrock {
 ///     // The numeric type. Usually f64 or f32.
 ///     type Scalar = f64;
 ///     // The dimension of the problem. Can be either statically known or dynamic.
 ///     type Dim = na::U2;
 ///
-///     // Apply trial values of variables to the system.
-///     fn apply<Sx, Sfx>(
+///     // Return the actual dimension of the system.
+///     fn dim(&self) -> Self::Dim {
+///         na::U2::name()
+///     }
+/// }
+///
+/// impl System for Rosenbrock {
+///     // Evaluate trial values of variables to the system.
+///     fn eval<Sx, Sfx>(
 ///         &self,
 ///         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
 ///         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-///     ) -> Result<(), SystemError>
+///     ) -> Result<(), Error>
 ///     where
 ///         Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
 ///         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
@@ -64,69 +57,18 @@ pub enum SystemError {
 ///
 ///         Ok(())
 ///     }
-///
-///     // Return the actual dimension of the system.
-///     fn dim(&self) -> Self::Dim {
-///         na::U2::name()
-///     }
 /// }
 /// ```
-pub trait System {
-    /// Type of the scalar, usually f32 or f64.
-    type Scalar: RealField;
-
-    /// Dimension of the system. Can be fixed
-    /// ([`Const`](nalgebra::base::dimension::Const)) or dynamic
-    /// ([`Dynamic`](nalgebra::base::dimension::Dynamic)).
-    type Dim: Dim;
-
+pub trait System: Problem {
     /// Calculate the residuals of the system given values of the variables.
-    fn apply<Sx, Sfx>(
+    fn eval<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), SystemError>
+    ) -> Result<(), Error>
     where
         Sx: Storage<Self::Scalar, Self::Dim>,
         Sfx: StorageMut<Self::Scalar, Self::Dim>;
-
-    /// Return the actual dimension of the system. This is needed for dynamic
-    /// systems.
-    fn dim(&self) -> Self::Dim;
-
-    /// Get the domain (bound constraints) of the system. If not overridden, the
-    /// system is unconstrained.
-    fn domain(&self) -> Domain<Self::Scalar> {
-        Domain::with_dim(self.dim().value())
-    }
-}
-
-/// Some extensions methods for the [`System`] that may be found useful.
-pub trait SystemExt: System {
-    /// Calculate the residuals and return the squared norm of the residuals.
-    fn apply_norm_squared<Sx, Sfx>(
-        &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<Self::Scalar, SystemError>
-    where
-        Sx: Storage<Self::Scalar, Self::Dim>,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>;
-}
-
-impl<F: System> SystemExt for F {
-    fn apply_norm_squared<Sx, Sfx>(
-        &self,
-        x: &Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
-    ) -> Result<F::Scalar, SystemError>
-    where
-        Sx: Storage<Self::Scalar, Self::Dim>,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
-    {
-        self.apply(x, fx)?;
-        Ok(fx.norm_squared())
-    }
 }
 
 /// A wrapper type for systems that implements a standard mechanism for
@@ -182,27 +124,12 @@ where
     }
 }
 
-impl<'f, F: System> System for RepulsiveSystem<'f, F>
+impl<'f, F: System> Problem for RepulsiveSystem<'f, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
     type Scalar = F::Scalar;
     type Dim = F::Dim;
-
-    fn apply<Sx, Sfx>(
-        &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), SystemError>
-    where
-        Sx: Storage<Self::Scalar, Self::Dim>,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
-    {
-        // TODO: RepulsiveSystem should adjust the residuals of the inner system
-        // such that solvers tend to go away from the roots stored in the
-        // archive.
-        self.f.apply(x, fx)
-    }
 
     fn dim(&self) -> Self::Dim {
         self.f.dim()
@@ -210,5 +137,25 @@ where
 
     fn domain(&self) -> Domain<Self::Scalar> {
         self.f.domain()
+    }
+}
+
+impl<'f, F: System> System for RepulsiveSystem<'f, F>
+where
+    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
+{
+    fn eval<Sx, Sfx>(
+        &self,
+        x: &Vector<Self::Scalar, Self::Dim, Sx>,
+        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+    ) -> Result<(), Error>
+    where
+        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+    {
+        // TODO: RepulsiveSystem should adjust the residuals of the inner system
+        // such that solvers tend to go away from the roots stored in the
+        // archive.
+        self.f.eval(x, fx)
     }
 }

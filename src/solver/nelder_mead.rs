@@ -29,7 +29,7 @@ use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Solver, System, SystemError, SystemExt, VectorDomainExt},
+    core::{Domain, Error, Function, Optimizer, Problem, Solver, System, VectorDomainExt},
     derivatives::EPSILON_SQRT,
 };
 
@@ -50,7 +50,7 @@ pub enum CoefficientsFamily {
 /// Options for [`NelderMead`] solver.
 #[derive(Debug, Clone, CopyGetters, Setters)]
 #[getset(get_copy = "pub", set = "pub")]
-pub struct NelderMeadOptions<F: System> {
+pub struct NelderMeadOptions<F: Problem> {
     /// Family for coefficients adaptation or fixed coefficients. Default:
     /// balanced (see [`CoefficientsFamily`]).
     family: CoefficientsFamily,
@@ -66,7 +66,7 @@ pub struct NelderMeadOptions<F: System> {
     shrink_coeff: F::Scalar,
 }
 
-impl<F: System> Default for NelderMeadOptions<F> {
+impl<F: Problem> Default for NelderMeadOptions<F> {
     fn default() -> Self {
         Self {
             family: CoefficientsFamily::Balanced,
@@ -79,7 +79,7 @@ impl<F: System> Default for NelderMeadOptions<F> {
     }
 }
 
-impl<F: System> NelderMeadOptions<F> {
+impl<F: Problem> NelderMeadOptions<F> {
     fn overwrite_coeffs(&mut self, f: &F) {
         let Self {
             family,
@@ -116,12 +116,13 @@ impl<F: System> NelderMeadOptions<F> {
 }
 
 /// Nelder-Mead solver. See [module](self) documentation for more details.
-pub struct NelderMead<F: System>
+pub struct NelderMead<F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
     options: NelderMeadOptions<F>,
+    fx: OVector<F::Scalar, F::Dim>,
     scale: OVector<F::Scalar, F::Dim>,
     centroid: OVector<F::Scalar, F::Dim>,
     reflection: OVector<F::Scalar, F::Dim>,
@@ -132,7 +133,7 @@ where
     sort_perm: Vec<usize>,
 }
 
-impl<F: System> NelderMead<F>
+impl<F: Problem> NelderMead<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
@@ -150,6 +151,7 @@ where
 
         Self {
             options,
+            fx: OVector::zeros_generic(f.dim(), U1::name()),
             scale: OVector::from_iterator_generic(f.dim(), U1::name(), scale_iter),
             centroid: OVector::zeros_generic(f.dim(), U1::name()),
             reflection: OVector::zeros_generic(f.dim(), U1::name()),
@@ -167,31 +169,25 @@ where
 pub enum NelderMeadError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    System(#[from] SystemError),
+    Problem(#[from] Error),
     /// Simplex collapsed so it is impossible to make any progress.
     #[error("simplex collapsed")]
     SimplexCollapsed,
 }
 
-impl<F: System> Solver<F> for NelderMead<F>
+impl<F: Function> NelderMead<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
-    const NAME: &'static str = "Nelder-Mead";
-
-    type Error = NelderMeadError;
-
-    fn next<Sx, Sfx>(
+    fn next_inner<Sx>(
         &mut self,
         f: &F,
-        dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
-    ) -> Result<(), Self::Error>
+        dom: &Domain<<F>::Scalar>,
+        x: &mut Vector<<F>::Scalar, <F>::Dim, Sx>,
+    ) -> Result<F::Scalar, NelderMeadError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
-        Sfx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<<F>::Scalar, <F>::Dim>,
     {
         let NelderMeadOptions {
             reflection_coeff,
@@ -219,13 +215,13 @@ where
         if simplex.is_empty() {
             // Simplex initialization.
             simplex.push(x.clone_owned());
-            errors.push(f.apply_norm_squared(x, fx)?);
+            errors.push(f.apply(x)?);
 
             for j in 0..n {
                 let mut xi = x.clone_owned();
                 xi[j] = dom.vars()[j].clamp(xi[j] + scale[j]);
 
-                errors.push(f.apply_norm_squared(&xi, fx)?);
+                errors.push(f.apply(&xi)?);
                 simplex.push(xi);
             }
 
@@ -268,7 +264,7 @@ where
         // Perform one of possible simplex transformations.
         reflection.on_line2_mut(centroid, &simplex[sort_perm[n]], reflection_coeff);
         let reflection_not_feasible = reflection.project(dom);
-        let reflection_error = f.apply_norm_squared(reflection, fx)?;
+        let reflection_error = f.apply_eval(reflection, &mut self.fx)?;
 
         #[allow(clippy::suspicious_else_formatting)]
         let (transformation, not_feasible) = if errors[sort_perm[0]] <= reflection_error
@@ -284,7 +280,7 @@ where
             // farther along this direction.
             expansion.on_line2_mut(centroid, &simplex[sort_perm[n]], expansion_coeff);
             let expansion_not_feasible = expansion.project(dom);
-            let expansion_error = f.apply_norm_squared(expansion, fx)?;
+            let expansion_error = f.apply_eval(expansion, &mut self.fx)?;
 
             if expansion_error < reflection_error {
                 // Expansion indeed help, replace the worst point.
@@ -309,7 +305,7 @@ where
                 // Try to perform outer contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], outer_contraction_coeff);
                 let contraction_not_feasible = contraction.project(dom);
-                let contraction_error = f.apply_norm_squared(contraction, fx)?;
+                let contraction_error = f.apply_eval(contraction, &mut self.fx)?;
 
                 if contraction_error <= reflection_error {
                     // Use the contracted point instead of the reflected point
@@ -327,7 +323,7 @@ where
                 // Try to perform inner contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], inner_contraction_coeff);
                 let contraction_not_feasible = contraction.project(dom);
-                let contraction_error = f.apply_norm_squared(contraction, fx)?;
+                let contraction_error = f.apply_eval(contraction, &mut self.fx)?;
 
                 if contraction_error <= errors[sort_perm[n]] {
                     // The contracted point is better than the worst point.
@@ -352,7 +348,7 @@ where
                     for i in 1..=n {
                         let xi = &mut simplex[sort_perm[i]];
                         xi.on_line_mut(contraction, shrink_coeff);
-                        errors[sort_perm[i]] = f.apply_norm_squared(xi, fx)?;
+                        errors[sort_perm[i]] = f.apply_eval(xi, &mut self.fx)?;
                     }
 
                     (Transformation::Shrinkage, false)
@@ -368,7 +364,7 @@ where
         });
 
         debug!(
-            "performed {}{}, error range: {} - {}",
+            "performed {}{},\t|| fx || = {} - {}",
             transformation.as_str(),
             if not_feasible { " with projection" } else { "" },
             errors[sort_perm[0]],
@@ -377,7 +373,7 @@ where
 
         // Return the best simplex point.
         x.copy_from(&simplex[sort_perm[0]]);
-        f.apply(x, fx)?;
+        let error = f.apply_eval(x, &mut self.fx)?;
 
         if transformation == Transformation::Shrinkage || not_feasible {
             // Check whether the simplex collapsed or not. It can happen only
@@ -397,7 +393,55 @@ where
             }
         }
 
-        Ok(())
+        Ok(error)
+    }
+}
+
+impl<F: Function> Optimizer<F> for NelderMead<F>
+where
+    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
+    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
+{
+    const NAME: &'static str = "Nelder-Mead";
+
+    type Error = NelderMeadError;
+
+    fn next<Sx>(
+        &mut self,
+        f: &F,
+        dom: &Domain<F::Scalar>,
+        x: &mut Vector<F::Scalar, F::Dim, Sx>,
+    ) -> Result<F::Scalar, Self::Error>
+    where
+        Sx: StorageMut<F::Scalar, F::Dim>,
+    {
+        self.next_inner(f, dom, x)
+    }
+}
+
+impl<F: System + Function> Solver<F> for NelderMead<F>
+where
+    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
+    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
+{
+    const NAME: &'static str = "Nelder-Mead";
+
+    type Error = NelderMeadError;
+
+    fn next<Sx, Sfx>(
+        &mut self,
+        f: &F,
+        dom: &Domain<<F>::Scalar>,
+        x: &mut Vector<<F>::Scalar, <F>::Dim, Sx>,
+        fx: &mut Vector<<F>::Scalar, <F>::Dim, Sfx>,
+    ) -> Result<(), Self::Error>
+    where
+        Sx: StorageMut<<F>::Scalar, <F>::Dim>,
+        Sfx: StorageMut<<F>::Scalar, <F>::Dim>,
+    {
+        self.next_inner(f, dom, x).map(|_| {
+            fx.copy_from(&self.fx);
+        })
     }
 }
 

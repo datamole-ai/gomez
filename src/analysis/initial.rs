@@ -16,7 +16,7 @@ use nalgebra::{
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, System, SystemError},
+    core::{Domain, Error, Problem, System},
     derivatives::{Jacobian, JacobianError, EPSILON_SQRT},
 };
 
@@ -25,14 +25,14 @@ use crate::{
 pub enum InitialGuessAnalysisError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    System(#[from] SystemError),
+    System(#[from] Error),
     /// Error that occurred when computing the Jacobian matrix.
     #[error("{0}")]
     Jacobian(#[from] JacobianError),
 }
 
 /// Initial guesses analyzer. See [module](self) documentation for more details.
-pub struct InitialGuessAnalysis<F: System> {
+pub struct InitialGuessAnalysis<F: Problem> {
     nonlinear: Vec<usize>,
     ty: PhantomData<F>,
 }
@@ -59,7 +59,7 @@ where
         let scale = OVector::from_iterator_generic(f.dim(), U1::name(), scale_iter);
 
         // Compute F'(x) in the initial point.
-        f.apply(x, fx)?;
+        f.eval(x, fx)?;
         let jac1 = Jacobian::new(f, x, &scale, fx)?;
 
         // Compute Newton step.
@@ -74,7 +74,7 @@ where
         *x += p;
 
         // Compute F'(x) after one Newton step.
-        f.apply(x, fx)?;
+        f.eval(x, fx)?;
         let jac2 = Jacobian::new(f, x, &scale, fx)?;
 
         // Linear variables have no effect on the Jacobian matrix. They can be

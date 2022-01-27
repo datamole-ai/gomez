@@ -32,7 +32,7 @@ use rand_distr::{uniform::SampleUniform, Distribution, StandardNormal, Uniform};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Solver, System, SystemError},
+    core::{Domain, Error, Function, Optimizer, Problem, Solver, System},
     population::{Population, PopulationInit, PopulationSize, UniformInit},
 };
 
@@ -47,7 +47,7 @@ pub enum LocalWalkDirection {
 
 /// Options for [`Cuckoo`] solver.
 #[derive(Debug, Clone, CopyGetters, Getters, Setters)]
-pub struct CuckooOptions<F: System, I: PopulationInit<F>> {
+pub struct CuckooOptions<F: Problem, I: PopulationInit<F>> {
     /// Population size. Default: adaptive (see
     /// [`PopulationSize`](crate::population::PopulationSize)).
     #[getset(get_copy = "pub", set = "pub")]
@@ -71,7 +71,7 @@ pub struct CuckooOptions<F: System, I: PopulationInit<F>> {
     local_walk_dir: LocalWalkDirection,
 }
 
-impl<F: System, I: PopulationInit<F>> CuckooOptions<F, I> {
+impl<F: Problem, I: PopulationInit<F>> CuckooOptions<F, I> {
     /// Initializes the options with given population initializer.
     pub fn with_population_init(population_init: I) -> Self {
         Self {
@@ -85,7 +85,7 @@ impl<F: System, I: PopulationInit<F>> CuckooOptions<F, I> {
     }
 }
 
-impl<F: System> Default for CuckooOptions<F, UniformInit<F>>
+impl<F: Problem> Default for CuckooOptions<F, UniformInit<F>>
 where
     F::Scalar: SampleUniform,
 {
@@ -95,7 +95,7 @@ where
 }
 
 /// Cuckoo search solver. See [module](self) documentation for more details.
-pub struct Cuckoo<F: System, I: PopulationInit<F>, R: Rng>
+pub struct Cuckoo<F: Problem, I: PopulationInit<F>, R: Rng>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -111,7 +111,7 @@ where
     rng: R,
 }
 
-impl<F: System, R: Rng> Cuckoo<F, UniformInit<F>, R>
+impl<F: Problem, R: Rng> Cuckoo<F, UniformInit<F>, R>
 where
     DefaultAllocator: Allocator<F::Scalar, Dynamic>,
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
@@ -119,12 +119,15 @@ where
     F::Scalar: SampleUniform,
 {
     /// Initializes cuckoo search solver with default options.
-    pub fn new(f: &F, dom: &Domain<F::Scalar>, rng: R) -> Self {
+    pub fn new(f: &F, dom: &Domain<F::Scalar>, rng: R) -> Self
+    where
+        F: Function,
+    {
         Self::with_options(f, dom, rng, CuckooOptions::default())
     }
 }
 
-impl<F: System, I: PopulationInit<F>, R: Rng> Cuckoo<F, I, R>
+impl<F: Problem, I: PopulationInit<F>, R: Rng> Cuckoo<F, I, R>
 where
     DefaultAllocator: Allocator<F::Scalar, Dynamic>,
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
@@ -137,7 +140,10 @@ where
         dom: &Domain<F::Scalar>,
         mut rng: R,
         options: CuckooOptions<F, I>,
-    ) -> Self {
+    ) -> Self
+    where
+        F: Function,
+    {
         let population_size = options.population_size.get(f);
         let elite_fraction = options.elite_fraction;
 
@@ -178,10 +184,10 @@ where
 pub enum CuckooError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    System(#[from] SystemError),
+    Problem(#[from] Error),
 }
 
-impl<F: System, I: PopulationInit<F>, R: Rng> Solver<F> for Cuckoo<F, I, R>
+impl<F: Function, I: PopulationInit<F>, R: Rng> Cuckoo<F, I, R>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
@@ -191,19 +197,14 @@ where
     StandardNormal: Distribution<F::Scalar>,
     F::Scalar: SampleUniform + Float,
 {
-    const NAME: &'static str = "Cuckoo";
-    type Error = CuckooError;
-
-    fn next<Sx, Sfx>(
+    fn next_inner<Sx>(
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
         x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
-    ) -> Result<(), Self::Error>
+    ) -> Result<F::Scalar, CuckooError>
     where
         Sx: StorageMut<F::Scalar, F::Dim>,
-        Sfx: StorageMut<F::Scalar, F::Dim>,
     {
         let CuckooOptions {
             scale_factor,
@@ -313,8 +314,8 @@ where
         population.sort();
 
         // Assign te best individual.
-        x.copy_from(&population.iter_sorted().next().unwrap());
-        f.apply(x, fx)?;
+        let best = population.iter_sorted().next().unwrap();
+        x.copy_from(&best);
 
         let report = population.report();
 
@@ -326,7 +327,62 @@ where
             report.invalid(),
         );
 
-        Ok(())
+        Ok(best.error())
+    }
+}
+
+impl<F: Function, I: PopulationInit<F>, R: Rng> Optimizer<F> for Cuckoo<F, I, R>
+where
+    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
+    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
+    F::Dim: DimMin<F::Dim, Output = F::Dim>,
+    DefaultAllocator: Allocator<F::Scalar, <F::Dim as DimMin<F::Dim>>::Output>,
+    DefaultAllocator: Reallocator<F::Scalar, F::Dim, F::Dim, F::Dim, F::Dim>,
+    StandardNormal: Distribution<F::Scalar>,
+    F::Scalar: SampleUniform + Float,
+{
+    const NAME: &'static str = "Cuckoo";
+    type Error = CuckooError;
+
+    fn next<Sx>(
+        &mut self,
+        f: &F,
+        dom: &Domain<F::Scalar>,
+        x: &mut Vector<F::Scalar, F::Dim, Sx>,
+    ) -> Result<F::Scalar, Self::Error>
+    where
+        Sx: StorageMut<F::Scalar, F::Dim>,
+    {
+        self.next_inner(f, dom, x)
+    }
+}
+
+impl<F: System, I: PopulationInit<F>, R: Rng> Solver<F> for Cuckoo<F, I, R>
+where
+    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
+    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
+    F::Dim: DimMin<F::Dim, Output = F::Dim>,
+    DefaultAllocator: Allocator<F::Scalar, <F::Dim as DimMin<F::Dim>>::Output>,
+    DefaultAllocator: Reallocator<F::Scalar, F::Dim, F::Dim, F::Dim, F::Dim>,
+    StandardNormal: Distribution<F::Scalar>,
+    F::Scalar: SampleUniform + Float,
+{
+    const NAME: &'static str = "Cuckoo";
+    type Error = CuckooError;
+
+    fn next<Sx, Sfx>(
+        &mut self,
+        f: &F,
+        dom: &Domain<F::Scalar>,
+        x: &mut Vector<F::Scalar, F::Dim, Sx>,
+        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
+    ) -> Result<(), Self::Error>
+    where
+        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sfx: StorageMut<F::Scalar, F::Dim>,
+    {
+        self.next_inner(f, dom, x)
+            .and_then(|_| f.eval(x, fx).map_err(Into::into))
     }
 }
 

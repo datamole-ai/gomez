@@ -18,7 +18,7 @@
 //! \[4\] [HOMPACK: A Suite of Codes for Globally Convergent Homotopy
 //! Algorithms](https://dl.acm.org/doi/10.1145/29380.214343)
 
-use std::error::Error;
+use std::error::Error as StdError;
 
 use nalgebra::{
     allocator::Allocator,
@@ -29,7 +29,7 @@ use num_traits::Signed;
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Solver, System, SystemError},
+    core::{Domain, Error, Problem, Solver, System},
     var,
 };
 
@@ -58,7 +58,7 @@ where
         Sx: Storage<Self::Scalar, Self::Dim>,
     {
         let mut fx = x.clone_owned();
-        if self.apply(x, &mut fx).is_ok() {
+        if self.eval(x, &mut fx).is_ok() {
             fx.iter().all(|fxi| fxi.abs() <= eps)
         } else {
             false
@@ -112,32 +112,9 @@ impl Default for ExtendedRosenbrock {
     }
 }
 
-impl System for ExtendedRosenbrock {
+impl Problem for ExtendedRosenbrock {
     type Scalar = f64;
     type Dim = Dynamic;
-
-    fn apply<Sx, Sfx>(
-        &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), SystemError>
-    where
-        Sx: Storage<Self::Scalar, Self::Dim>,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
-    {
-        for i in 0..(self.n / 2) {
-            let i1 = 2 * i;
-            let i2 = 2 * i + 1;
-
-            let x1 = x[i1] * self.alpha;
-            let x2 = x[i2] / self.alpha;
-
-            fx[i1] = 10.0 * (x2 - x1 * x1);
-            fx[i2] = 1.0 - x1;
-        }
-
-        Ok(())
-    }
 
     fn dim(&self) -> Self::Dim {
         Dynamic::from_usize(self.n)
@@ -154,6 +131,31 @@ impl System for ExtendedRosenbrock {
             })
             .map(|m| var!(m))
             .collect()
+    }
+}
+
+impl System for ExtendedRosenbrock {
+    fn eval<Sx, Sfx>(
+        &self,
+        x: &Vector<Self::Scalar, Self::Dim, Sx>,
+        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+    ) -> Result<(), Error>
+    where
+        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+    {
+        for i in 0..(self.n / 2) {
+            let i1 = 2 * i;
+            let i2 = 2 * i + 1;
+
+            let x1 = x[i1] * self.alpha;
+            let x2 = x[i2] / self.alpha;
+
+            fx[i1] = 10.0 * (x2 - x1 * x1);
+            fx[i2] = 1.0 - x1;
+        }
+
+        Ok(())
     }
 }
 
@@ -218,15 +220,21 @@ impl Default for ExtendedPowell {
     }
 }
 
-impl System for ExtendedPowell {
+impl Problem for ExtendedPowell {
     type Scalar = f64;
     type Dim = Dynamic;
 
-    fn apply<Sx, Sfx>(
+    fn dim(&self) -> Self::Dim {
+        Dynamic::from_usize(self.n)
+    }
+}
+
+impl System for ExtendedPowell {
+    fn eval<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), SystemError>
+    ) -> Result<(), Error>
     where
         Sx: Storage<Self::Scalar, Self::Dim>,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -244,10 +252,6 @@ impl System for ExtendedPowell {
         }
 
         Ok(())
-    }
-
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
     }
 }
 
@@ -297,15 +301,25 @@ impl Default for BullardBiegler {
     }
 }
 
-impl System for BullardBiegler {
+impl Problem for BullardBiegler {
     type Scalar = f64;
     type Dim = U2;
 
-    fn apply<Sx, Sfx>(
+    fn dim(&self) -> Self::Dim {
+        U2::name()
+    }
+
+    fn domain(&self) -> Domain<Self::Scalar> {
+        vec![var!(5.45e-6, 4.553), var!(2.196e-3, 18.21)].into()
+    }
+}
+
+impl System for BullardBiegler {
+    fn eval<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), SystemError>
+    ) -> Result<(), Error>
     where
         Sx: Storage<Self::Scalar, Self::Dim>,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -314,14 +328,6 @@ impl System for BullardBiegler {
         fx[1] = (-x[0]).exp() + (-x[1]).exp() - 1.001;
 
         Ok(())
-    }
-
-    fn dim(&self) -> Self::Dim {
-        U2::name()
-    }
-
-    fn domain(&self) -> Domain<Self::Scalar> {
-        vec![var!(5.45e-6, 4.553), var!(2.196e-3, 18.21)].into()
     }
 }
 
@@ -367,15 +373,21 @@ impl Default for Sphere {
     }
 }
 
-impl System for Sphere {
+impl Problem for Sphere {
     type Scalar = f64;
     type Dim = Dynamic;
 
-    fn apply<Sx, Sfx>(
+    fn dim(&self) -> Self::Dim {
+        Dynamic::from_usize(self.n)
+    }
+}
+
+impl System for Sphere {
+    fn eval<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), SystemError>
+    ) -> Result<(), Error>
     where
         Sx: Storage<Self::Scalar, Self::Dim>,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -385,10 +397,6 @@ impl System for Sphere {
         }
 
         Ok(())
-    }
-
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
     }
 }
 
@@ -436,15 +444,21 @@ impl Default for Brown {
     }
 }
 
-impl System for Brown {
+impl Problem for Brown {
     type Scalar = f64;
     type Dim = Dynamic;
 
-    fn apply<Sx, Sfx>(
+    fn dim(&self) -> Self::Dim {
+        Dynamic::from_usize(self.n)
+    }
+}
+
+impl System for Brown {
+    fn eval<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), SystemError>
+    ) -> Result<(), Error>
     where
         Sx: Storage<Self::Scalar, Self::Dim>,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -456,10 +470,6 @@ impl System for Brown {
         }
 
         Ok(())
-    }
-
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
     }
 }
 
@@ -499,15 +509,21 @@ impl Default for Exponential {
     }
 }
 
-impl System for Exponential {
+impl Problem for Exponential {
     type Scalar = f64;
     type Dim = Dynamic;
 
-    fn apply<Sx, Sfx>(
+    fn dim(&self) -> Self::Dim {
+        Dynamic::from_usize(self.n)
+    }
+}
+
+impl System for Exponential {
+    fn eval<Sx, Sfx>(
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), SystemError>
+    ) -> Result<(), Error>
     where
         Sx: Storage<Self::Scalar, Self::Dim>,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -517,10 +533,6 @@ impl System for Exponential {
         }
 
         Ok(())
-    }
-
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
     }
 }
 
@@ -533,7 +545,7 @@ impl TestSystem for Exponential {
 
 /// Solving error of the testing solver driver (see [`solve`]).
 #[derive(Debug, Error)]
-pub enum SolveError<E: Error + 'static> {
+pub enum SolveError<E: StdError + 'static> {
     /// Error of the solver used.
     #[error("{0}")]
     Solver(#[from] E),
@@ -553,7 +565,7 @@ pub fn solve<F: TestSystem, S: Solver<F>>(
 ) -> Result<OVector<F::Scalar, F::Dim>, SolveError<S::Error>>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    S::Error: Error,
+    S::Error: StdError,
 {
     let mut fx = x.clone_owned();
     let mut iter = 0;
@@ -585,7 +597,7 @@ pub fn iter<F: TestSystem, S: Solver<F>, G>(
 ) -> Result<(), S::Error>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    S::Error: Error,
+    S::Error: StdError,
     G: FnMut(&S, &OVector<F::Scalar, F::Dim>, F::Scalar, usize),
 {
     let mut fx = x.clone_owned();

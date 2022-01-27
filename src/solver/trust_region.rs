@@ -39,7 +39,7 @@ use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Solver, System, SystemError, VectorDomainExt},
+    core::{Domain, Error, Problem, Solver, System, VectorDomainExt},
     derivatives::{Jacobian, JacobianError, EPSILON_SQRT},
 };
 
@@ -55,7 +55,7 @@ pub enum DeltaInit<S> {
 /// Options for [`TrustRegion`] solver.
 #[derive(Debug, Clone, CopyGetters, Setters)]
 #[getset(get_copy = "pub", set = "pub")]
-pub struct TrustRegionOptions<F: System> {
+pub struct TrustRegionOptions<F: Problem> {
     /// Minimum allowed trust region size. Default: `f64::EPSILON.sqrt()`.
     delta_min: F::Scalar,
     /// Maximum allowed trust region size. Default: `1e9`.
@@ -82,7 +82,7 @@ pub struct TrustRegionOptions<F: System> {
     allow_ascent: bool,
 }
 
-impl<F: System> Default for TrustRegionOptions<F> {
+impl<F: Problem> Default for TrustRegionOptions<F> {
     fn default() -> Self {
         Self {
             delta_min: convert(EPSILON_SQRT),
@@ -99,7 +99,7 @@ impl<F: System> Default for TrustRegionOptions<F> {
 }
 
 /// Trust region solver. See [module](self) documentation for more details.
-pub struct TrustRegion<F: System>
+pub struct TrustRegion<F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
@@ -120,7 +120,7 @@ where
     rejections_cnt: usize,
 }
 
-impl<F: System> TrustRegion<F>
+impl<F: Problem> TrustRegion<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
@@ -163,7 +163,7 @@ where
 pub enum TrustRegionError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    System(#[from] SystemError),
+    Problem(#[from] Error),
     /// Error that occurred when computing the Jacobian matrix.
     #[error("{0}")]
     Jacobian(#[from] JacobianError),
@@ -241,7 +241,7 @@ where
         }
 
         // Compute F(x) and F'(x).
-        f.apply(x, fx)?;
+        f.eval(x, fx)?;
         jac.compute(f, x, scale, fx)?;
 
         let fx_norm = fx.norm();
@@ -531,7 +531,7 @@ where
         }
 
         // Compute F(x').
-        let is_trial_valid = f.apply(x_trial, fx_trial).is_ok();
+        let is_trial_valid = f.eval(x_trial, fx_trial).is_ok();
         let fx_trial_norm = fx_trial.norm();
 
         let gain_ratio = if is_trial_valid {
