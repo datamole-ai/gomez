@@ -9,16 +9,14 @@ use std::{
 
 use getset::CopyGetters;
 use nalgebra::{
-    allocator::Allocator,
-    convert,
-    storage::{Storage, StorageMut},
-    ComplexField, DefaultAllocator, Dim, DimName, OVector, Vector, U1,
+    allocator::Allocator, convert, storage::StorageMut, ComplexField, DefaultAllocator, Dim,
+    DimName, OVector, Vector, U1,
 };
 use num_traits::Zero;
 use rand::Rng;
 use rand_distr::{uniform::SampleUniform, Distribution, Uniform};
 
-use crate::core::{Domain, System, SystemError};
+use crate::core::{Domain, Error, Function, Problem};
 
 /// Population in a population-based solving algorithm.
 ///
@@ -32,7 +30,7 @@ use crate::core::{Domain, System, SystemError};
 ///
 /// Violating any of these invariants results in panic in debug builds.
 #[allow(clippy::len_without_is_empty)]
-pub struct Population<F: System>
+pub struct Population<F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -43,7 +41,7 @@ where
     sorted_dirty: bool,
 }
 
-impl<F: System> Population<F>
+impl<F: Problem> Population<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -54,7 +52,10 @@ where
         rng: &mut R,
         initializer: &I,
         size: PopulationSize,
-    ) -> Self {
+    ) -> Self
+    where
+        F: Function,
+    {
         let size = size.get(f);
 
         let mut individuals = vec![OVector::zeros_generic(f.dim(), U1::name()); size];
@@ -170,9 +171,14 @@ where
     }
 
     /// Evaluate the whole population and store the errors.
-    pub fn eval(&mut self, f: &F) {
+    pub fn eval(&mut self, f: &F)
+    where
+        F: Function,
+    {
         for (x, error) in self.individuals.iter().zip(self.errors.iter_mut()) {
-            *error = eval(f, x, &mut self.fx).unwrap_or_else(|_| convert(f64::INFINITY));
+            *error = f
+                .apply_eval(x, &mut self.fx)
+                .unwrap_or_else(|_| convert(f64::INFINITY));
         }
     }
 
@@ -203,22 +209,9 @@ where
     }
 }
 
-fn eval<F: System, Sx, Sfx>(
-    f: &F,
-    x: &Vector<F::Scalar, F::Dim, Sx>,
-    fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
-) -> Result<F::Scalar, SystemError>
-where
-    Sx: Storage<F::Scalar, F::Dim>,
-    Sfx: StorageMut<F::Scalar, F::Dim>,
-{
-    f.apply(x, fx)?;
-    Ok(fx.norm())
-}
-
 /// An individual from a population returned by [`get`](Population::get),
 /// [`iter_sorted`](Population::iter_sorted) and [`iter`](Population::iter).
-pub struct Individual<'a, F: System>
+pub struct Individual<'a, F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -226,7 +219,7 @@ where
     error: F::Scalar,
 }
 
-impl<'a, F: System> Individual<'a, F>
+impl<'a, F: Problem> Individual<'a, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -236,7 +229,7 @@ where
     }
 }
 
-impl<F: System> Deref for Individual<'_, F>
+impl<F: Problem> Deref for Individual<'_, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -250,7 +243,7 @@ where
 /// Immutable iterator over a [population](`Population`).
 ///
 /// For sorted version, see [`iter_sorted`](Population::iter_sorted).
-pub struct Iter<'a, F: System>
+pub struct Iter<'a, F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -260,7 +253,7 @@ where
     >,
 }
 
-impl<'a, F: System> Iterator for Iter<'a, F>
+impl<'a, F: Problem> Iterator for Iter<'a, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -276,7 +269,7 @@ where
 /// low to high.
 ///
 /// For *un*sorted version, see [`iter`](Population::iter).
-pub struct IterSorted<'a, F: System>
+pub struct IterSorted<'a, F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -285,7 +278,7 @@ where
     sorted: std::slice::Iter<'a, usize>,
 }
 
-impl<'a, F: System> Iterator for IterSorted<'a, F>
+impl<'a, F: Problem> Iterator for IterSorted<'a, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -329,7 +322,7 @@ where
 ///     x.set_error(error);
 /// }
 /// ```
-pub struct IndividualMut<'a, F: System>
+pub struct IndividualMut<'a, F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -338,7 +331,7 @@ where
     dirty: bool,
 }
 
-impl<'a, F: System> IndividualMut<'a, F>
+impl<'a, F: Problem> IndividualMut<'a, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -365,11 +358,12 @@ where
         &self,
         f: &F,
         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
-    ) -> Result<F::Scalar, SystemError>
+    ) -> Result<F::Scalar, Error>
     where
         Sfx: StorageMut<F::Scalar, F::Dim>,
+        F: Function,
     {
-        eval(f, self.x, fx)
+        f.apply_eval(self.x, fx)
     }
 
     /// Clamp the individual to be with the bounds of given domain.
@@ -385,7 +379,7 @@ where
     }
 }
 
-impl<F: System> Deref for IndividualMut<'_, F>
+impl<F: Problem> Deref for IndividualMut<'_, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -396,7 +390,7 @@ where
     }
 }
 
-impl<F: System> DerefMut for IndividualMut<'_, F>
+impl<F: Problem> DerefMut for IndividualMut<'_, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -406,7 +400,7 @@ where
     }
 }
 
-impl<F: System> Drop for IndividualMut<'_, F>
+impl<F: Problem> Drop for IndividualMut<'_, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -416,7 +410,7 @@ where
 }
 
 /// Mutable iterator over a [population](`Population`).
-pub struct IterMut<'a, F: System>
+pub struct IterMut<'a, F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -426,7 +420,7 @@ where
     >,
 }
 
-impl<'a, F: System> Iterator for IterMut<'a, F>
+impl<'a, F: Problem> Iterator for IterMut<'a, F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -447,7 +441,7 @@ where
 /// [`report`](Population::report) method.
 #[derive(Debug, Clone, CopyGetters)]
 #[get_copy = "pub"]
-pub struct PopulationReport<F: System> {
+pub struct PopulationReport<F: Problem> {
     /// Error of the best individual in the population.
     best: F::Scalar,
     /// Average error of all individuals that have finite error.
@@ -459,7 +453,7 @@ pub struct PopulationReport<F: System> {
     invalid: usize,
 }
 
-impl<F: System> PopulationReport<F>
+impl<F: Problem> PopulationReport<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
@@ -492,7 +486,7 @@ where
 }
 
 /// Trait defining an initialization of a population.
-pub trait PopulationInit<F: System> {
+pub trait PopulationInit<F: Problem> {
     /// Initialize one individual in the population.
     fn init<R: Rng + ?Sized, S>(
         &self,
@@ -521,11 +515,11 @@ pub trait PopulationInit<F: System> {
 }
 
 /// Initializes the population with uniform distribution within the bounds.
-pub struct UniformInit<F: System> {
+pub struct UniformInit<F: Problem> {
     factor: F::Scalar,
 }
 
-impl<F: System> UniformInit<F> {
+impl<F: Problem> UniformInit<F> {
     /// Creates the population initializer with given
     /// [factor](UniformInit::factor).
     pub fn with_factor(factor: F::Scalar) -> Self {
@@ -549,13 +543,13 @@ impl<F: System> UniformInit<F> {
     }
 }
 
-impl<F: System> Default for UniformInit<F> {
+impl<F: Problem> Default for UniformInit<F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<F: System> PopulationInit<F> for UniformInit<F>
+impl<F: Problem> PopulationInit<F> for UniformInit<F>
 where
     F::Scalar: SampleUniform,
 {
@@ -600,7 +594,7 @@ impl PopulationSize {
     /// influenced by the system dimension.
     ///
     /// It is guaranteed that the population is of size at least 2.
-    pub fn get<F: System>(&self, f: &F) -> usize {
+    pub fn get<F: Problem>(&self, f: &F) -> usize {
         let size = match self {
             PopulationSize::Fixed(size) => *size,
             PopulationSize::Adaptive => {

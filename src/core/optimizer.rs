@@ -1,23 +1,23 @@
 use nalgebra::{storage::StorageMut, Vector};
 
-use super::{domain::Domain, system::System};
+use super::{domain::Domain, function::Function};
 
-/// Common interface for all solvers.
+/// Common interface for all optimizers.
 ///
-/// All solvers implement a common interface defined by the [`Solver`] trait.
-/// The essential method is [`next`](Solver::next) which takes variables *x* and
-/// computes the next step. Thus it represents one iteration in the process.
-/// Repeated call to this method should converge *x* to the solution in
-/// successful cases.
+/// All optimizers implement a common interface defined by the [`Optimizer`]
+/// trait. The essential method is [`next`](Optimizer::next) which takes
+/// variables *x* and computes the next step. Thus it represents one iteration
+/// in the process. Repeated call to this method should move *x* towards the
+/// minimum in successful cases.
 ///
-/// If you implement a solver, please consider make it a contribution to this
-/// library.
+/// If you implement an optimizer, please consider make it a contribution to
+/// this library.
 ///
-/// ## Implementing a solver
+/// ## Implementing an optimizer
 ///
-/// Here is an implementation of a random solver (if such a thing can be called
-/// a solver) which randomly generates values in a hope that a solution can be
-/// found with enough luck.
+/// Here is an implementation of a random optimizer (if such a thing can be
+/// called an optimizer) which randomly generates values in a hope that
+/// eventually goes to the minimum with enough luck.
 ///
 /// ```rust
 /// use gomez::nalgebra as na;
@@ -36,66 +36,61 @@ use super::{domain::Domain, system::System};
 ///     }
 /// }
 ///
-/// impl<F: System, R: Rng> Solver<F> for Random<R>
+/// impl<F: Function, R: Rng> Optimizer<F> for Random<R>
 /// where
 ///     F::Scalar: SampleUniform,
 /// {
 ///     const NAME: &'static str = "Random";
 ///     type Error = Error;
 ///
-///     fn next<Sx, Sfx>(
+///     fn next<Sx>(
 ///         &mut self,
 ///         f: &F,
 ///         dom: &Domain<F::Scalar>,
 ///         x: &mut Vector<F::Scalar, F::Dim, Sx>,
-///         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
-///     ) -> Result<(), Self::Error>
+///     ) -> Result<F::Scalar, Self::Error>
 ///     where
 ///         Sx: StorageMut<F::Scalar, F::Dim>,
-///         Sfx: StorageMut<F::Scalar, F::Dim>,
 ///     {
 ///         // Randomly sample within the bounds.
 ///         x.iter_mut().zip(dom.vars().iter()).for_each(|(xi, vi)| {
 ///             *xi = Uniform::new_inclusive(vi.lower(), vi.upper()).sample(&mut self.rng)
 ///         });
 ///
-///         // We must compute the residuals.
-///         f.eval(x, fx)?;
-///
-///         Ok(())
+///         // We must compute the value.
+///         let value = f.apply(x)?;
+///         Ok(value)
 ///     }
 /// }
 /// ```
-pub trait Solver<F: System> {
-    /// Name of the solver.
+pub trait Optimizer<F: Function> {
+    /// Name of the optimizer.
     const NAME: &'static str;
 
     /// Error type of the iteration. Represents an invalid operation during
     /// computing the next step. It is usual that one of the error kinds is
-    /// propagation of the [`Error`](super::Error) from the system.
+    /// propagation of the [`Error`](super::Error) from the function.
     type Error;
 
-    /// Computes the next step in the solving process.
+    /// Computes the next step in the optimization process.
     ///
     /// The value of `x` is the current values of variables. After the method
     /// returns, `x` should hold the variable values of the performed step and
-    /// `fx` *must* contain residuals of that step as computed by
-    /// [`System::eval`].
+    /// the return value *must* be the function value of that step as computed
+    /// by [`Function::apply`].
     ///
-    /// It is implementation error not to compute the residuals of the computed
-    /// step.
+    /// It is implementation error not to return function value corresponding to
+    /// the computed step.
     ///
     /// The implementations *can* assume that subsequent calls to `next` pass
     /// the value of `x` as was outputted in the previous iteration by the same
     /// method.
-    fn next<Sx, Sfx>(
+    fn next<Sx>(
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
         x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
-    ) -> Result<(), Self::Error>
+    ) -> Result<F::Scalar, Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
-        Sfx: StorageMut<F::Scalar, F::Dim>;
+        Sx: StorageMut<F::Scalar, F::Dim>;
 }

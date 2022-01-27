@@ -56,13 +56,13 @@
 //! The bounds can be negative/positive infinity, effectively making the
 //! variable unconstrained.
 //!
-//! More sophisticated constrains (such as (in)equalities consisting of multiple
-//! variables) are currently out of the scope of this library. If you are in
-//! need of those, feel free to contribute with the API design incorporating
-//! them and the implementation of appropriate solvers.
+//! More sophisticated constraints (such as (in)equalities consisting of
+//! multiple variables) are currently out of the scope of this library. If you
+//! are in need of those, feel free to contribute with the API design
+//! incorporating them and the implementation of appropriate solvers.
 //!
 //! When it comes to code, the problem is any type that implements the
-//! [`System`](core::System) trait.
+//! [`System`](core::System) and [`Problem`](core::Problem) traits.
 //!
 //! ```rust
 //! // Gomez is based on `nalgebra` crate.
@@ -76,18 +76,25 @@
 //!     b: f64,
 //! }
 //!
-//! impl System for Rosenbrock {
+//! impl Problem for Rosenbrock {
 //!     // The numeric type. Usually f64 or f32.
 //!     type Scalar = f64;
 //!     // The dimension of the problem. Can be either statically known or dynamic.
 //!     type Dim = na::U2;
 //!
-//!     // Apply trial values of variables to the system.
-//!     fn apply<Sx, Sfx>(
+//!     // Return the actual dimension of the system.
+//!     fn dim(&self) -> Self::Dim {
+//!         na::U2::name()
+//!     }
+//! }
+//!
+//! impl System for Rosenbrock {
+//!     // Evaluate trial values of variables to the system.
+//!     fn eval<Sx, Sfx>(
 //!         &self,
 //!         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
 //!         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-//!     ) -> Result<(), SystemError>
+//!     ) -> Result<(), Error>
 //!     where
 //!         Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
 //!         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
@@ -97,11 +104,6 @@
 //!         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
 //!
 //!         Ok(())
-//!     }
-//!
-//!     // Return the actual dimension of the system.
-//!     fn dim(&self) -> Self::Dim {
-//!         na::U2::name()
 //!     }
 //! }
 //! ```
@@ -114,7 +116,7 @@
 //!
 //! By default, the variables are considered unconstrained, but for constrained
 //! problems it is just matter of overriding the default implementation of the
-//! `domain` method.
+//! [`domain`](core::Problem::domain) method.
 //!
 //! ```rust
 //! # use gomez::nalgebra as na;
@@ -126,24 +128,9 @@
 //! #     b: f64,
 //! # }
 //! #
-//! impl System for Rosenbrock {
+//! impl Problem for Rosenbrock {
 //! #     type Scalar = f64;
 //! #     type Dim = na::U2;
-//! #
-//! #     fn apply<Sx, Sfx>(
-//! #         &self,
-//! #         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
-//! #         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-//! #     ) -> Result<(), SystemError>
-//! #     where
-//! #         Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
-//! #         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
-//! #     {
-//! #         fx[0] = (self.a - x[0]).powi(2);
-//! #         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
-//! #
-//! #         Ok(())
-//! #     }
 //! #
 //! #     fn dim(&self) -> Self::Dim {
 //! #         na::U2::name()
@@ -179,15 +166,21 @@
 //! #     b: f64,
 //! # }
 //! #
-//! # impl System for Rosenbrock {
+//! # impl Problem for Rosenbrock {
 //! #     type Scalar = f64;
 //! #     type Dim = na::U2;
 //! #
-//! #     fn apply<Sx, Sfx>(
+//! #     fn dim(&self) -> Self::Dim {
+//! #         na::U2::name()
+//! #     }
+//! # }
+//! #
+//! # impl System for Rosenbrock {
+//! #     fn eval<Sx, Sfx>(
 //! #         &self,
 //! #         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
 //! #         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-//! #     ) -> Result<(), SystemError>
+//! #     ) -> Result<(), Error>
 //! #     where
 //! #         Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
 //! #         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
@@ -196,10 +189,6 @@
 //! #         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
 //! #
 //! #         Ok(())
-//! #     }
-//! #
-//! #     fn dim(&self) -> Self::Dim {
-//! #         na::U2::name()
 //! #     }
 //! # }
 //!
@@ -272,7 +261,9 @@ pub use nalgebra;
 /// Gomez prelude.
 pub mod prelude {
     pub use crate::{
-        core::{Domain, Solver, System, SystemError, Variable, VariableBuilder},
+        core::{
+            Domain, Error, Function, Optimizer, Problem, Solver, System, Variable, VariableBuilder,
+        },
         var,
     };
 }

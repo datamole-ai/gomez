@@ -11,7 +11,7 @@ use nalgebra::{
 use num_traits::{One, Zero};
 use thiserror::Error;
 
-use crate::core::{System, SystemError};
+use crate::core::{Error, Problem, System};
 
 /// Square root of double precision machine epsilon. This value is a standard
 /// constant for epsilons in approximating derivate-based concepts.
@@ -22,19 +22,19 @@ pub const EPSILON_SQRT: f64 = 0.000000014901161193847656;
 pub enum JacobianError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    System(#[from] SystemError),
+    Problem(#[from] Error),
 }
 
 /// Jacobian matrix of a system.
 #[derive(Debug)]
-pub struct Jacobian<F: System>
+pub struct Jacobian<F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
     jac: OMatrix<F::Scalar, F::Dim, F::Dim>,
 }
 
-impl<F: System> Jacobian<F>
+impl<F: Problem> Jacobian<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
@@ -44,7 +44,12 @@ where
             jac: OMatrix::zeros_generic(f.dim(), f.dim()),
         }
     }
+}
 
+impl<F: System> Jacobian<F>
+where
+    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
+{
     /// Compute Compute the Jacobian matrix of the system in given point with
     /// given scale of variables. See [`compute`](Jacobian::compute) for more
     /// details.
@@ -105,7 +110,7 @@ where
 
             // Update the point.
             x[j] = xj + step;
-            f.apply(x, &mut col)?;
+            f.eval(x, &mut col)?;
 
             // Compute the derivative approximation: J[i, j] = (F(x + e_j * step_j) - F(x)) / step_j.
             col -= fx;
@@ -119,7 +124,7 @@ where
     }
 }
 
-impl<F: System> Deref for Jacobian<F>
+impl<F: Problem> Deref for Jacobian<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
@@ -145,7 +150,7 @@ mod tests {
         let mut fx = dvector![0.0, 0.0];
 
         let func = ExtendedRosenbrock::new(2);
-        func.apply(&x, &mut fx).unwrap();
+        func.eval(&x, &mut fx).unwrap();
         let jac = Jacobian::new(&func, &mut x, &scale, &fx);
 
         assert!(jac.is_ok());
@@ -162,7 +167,7 @@ mod tests {
         let mut fx = dvector![0.0, 0.0, 0.0, 0.0];
 
         let func = ExtendedPowell::new(4);
-        func.apply(&x, &mut fx).unwrap();
+        func.eval(&x, &mut fx).unwrap();
         let jac = Jacobian::new(&func, &mut x, &scale, &fx);
 
         assert!(jac.is_ok());

@@ -33,7 +33,7 @@ where
     let mut fx = x.clone_owned();
     let mut iter = 0;
     loop {
-        if solver.next(&f, &dom, &mut x, &mut fx).is_err() {
+        if solver.next(f, dom, &mut x, &mut fx).is_err() {
             return false;
         }
 
@@ -67,10 +67,7 @@ fn rosenbrock1(c: &mut Criterion) {
             assert!(solve(
                 &f,
                 &dom,
-                GslSolverWrapper::new(GslFunctionWrapper::new(
-                    f.clone(),
-                    GslVec::from(x.as_slice())
-                )),
+                GslSolverWrapper::new(GslFunctionWrapper::new(f, GslVec::from(x.as_slice()))),
                 x.clone_owned()
             ))
         })
@@ -95,10 +92,7 @@ fn rosenbrock2(c: &mut Criterion) {
             assert!(solve(
                 &f,
                 &dom,
-                GslSolverWrapper::new(GslFunctionWrapper::new(
-                    f.clone(),
-                    GslVec::from(x.as_slice())
-                )),
+                GslSolverWrapper::new(GslFunctionWrapper::new(f, GslVec::from(x.as_slice()))),
                 x.clone_owned()
             ))
         })
@@ -123,10 +117,7 @@ fn rosenbrock_scaled(c: &mut Criterion) {
             assert!(solve(
                 &f,
                 &dom,
-                GslSolverWrapper::new(GslFunctionWrapper::new(
-                    f.clone(),
-                    GslVec::from(x.as_slice())
-                )),
+                GslSolverWrapper::new(GslFunctionWrapper::new(f, GslVec::from(x.as_slice()))),
                 x.clone_owned()
             ))
         })
@@ -147,10 +138,7 @@ fn rosenbrock_large(c: &mut Criterion) {
             assert!(solve(
                 &f,
                 &dom,
-                GslSolverWrapper::new(GslFunctionWrapper::new(
-                    f.clone(),
-                    GslVec::from(x.as_slice())
-                )),
+                GslSolverWrapper::new(GslFunctionWrapper::new(f, GslVec::from(x.as_slice()))),
                 x.clone_owned()
             ))
         })
@@ -175,10 +163,7 @@ fn powell(c: &mut Criterion) {
             assert!(solve(
                 &f,
                 &dom,
-                GslSolverWrapper::new(GslFunctionWrapper::new(
-                    f.clone(),
-                    GslVec::from(x.as_slice())
-                )),
+                GslSolverWrapper::new(GslFunctionWrapper::new(f, GslVec::from(x.as_slice()))),
                 x.clone_owned()
             ))
         })
@@ -199,10 +184,7 @@ fn bullard_biegler(c: &mut Criterion) {
             assert!(solve(
                 &f,
                 &dom,
-                GslSolverWrapper::new(GslFunctionWrapper::new(
-                    f.clone(),
-                    GslVec::from(x.as_slice())
-                )),
+                GslSolverWrapper::new(GslFunctionWrapper::new(f, GslVec::from(x.as_slice()))),
                 x.clone_owned()
             ))
         })
@@ -249,7 +231,7 @@ where
             na::U1::name(),
         );
 
-        match self.f.apply(&x, &mut fx) {
+        match self.f.eval(&x, &mut fx) {
             Ok(_) => GslStatus::ok(),
             Err(_) => GslStatus::err(GslError::BadFunc),
         }

@@ -9,15 +9,21 @@ struct Rosenbrock {
     b: f64,
 }
 
-impl System for Rosenbrock {
+impl Problem for Rosenbrock {
     type Scalar = f64;
     type Dim = na::U2;
 
-    fn apply<Sx, Sfx>(
+    fn dim(&self) -> Self::Dim {
+        na::U2::name()
+    }
+}
+
+impl System for Rosenbrock {
+    fn eval<Sx, Sfx>(
         &self,
         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), SystemError>
+    ) -> Result<(), Error>
     where
         Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
@@ -26,10 +32,6 @@ impl System for Rosenbrock {
         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
 
         Ok(())
-    }
-
-    fn dim(&self) -> Self::Dim {
-        na::U2::name()
     }
 }
 
