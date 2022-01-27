@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Features
 
 - Rename `System::apply_mut` to `System::apply` ([6b5ad6e](../../commit/6b5ad6ec5e7b1e94c3dd8f511df5bfea01db916f))
-  - *The function was superseded by `System::eval` in ([0e869f6](../../commit/0e869f656852369ed47f23aff76f04d56d62620d))
+  - The function was superseded by `System::eval` in ([0e869f6](../../commit/0e869f656852369ed47f23aff76f04d56d62620d))
 - Add Function and Optimizer traits for general optimization ([0e869f6](../../commit/0e869f656852369ed47f23aff76f04d56d62620d))
   - Huge **breaking change** because of restructuring the problem traits to `Problem`, `System` and `Function`
 
