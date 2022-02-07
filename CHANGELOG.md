@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2022-02-07
+
+### Documentation
+
+- Remove asterisk typo ([2870944](../../commit/2870944578dc605c7e0443acc9da8ee8e8b0850f))
+
+### Features
+
+- Improve robustness of Nelder-Mead algorithm ([34a7fca](../../commit/34a7fca846e2b18e09a6b182a54a23aeefa087f1))
+- Avoid unnecessary function evaluation in Nelder-Mead ([fb8e90e](../../commit/fb8e90ea85bc6a9fd758f2e8513c139f65d794e4))
+- Add reset functions to all solvers ([b12eca5](../../commit/b12eca5ae452038f5efb377a7523f720da9fcf85))
+
 ## [0.2.0] - 2022-01-27
 
 ### Features
