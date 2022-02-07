@@ -177,6 +177,15 @@ where
     pub fn population(&self) -> &Population<F> {
         &self.population
     }
+
+    /// Resets the internal state of the solver.
+    pub fn reset(&mut self, f: &F, dom: &Domain<F::Scalar>)
+    where
+        F: Function,
+    {
+        self.population
+            .reinit(f, dom, &mut self.rng, &self.options.population_init);
+    }
 }
 
 /// Error returned from [`Cuckoo`] solver.

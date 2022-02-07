@@ -167,6 +167,14 @@ where
             sort_perm: Vec::with_capacity(f.dim().value() + 1),
         }
     }
+
+    /// Resets the internal state of the solver.
+    pub fn reset(&mut self) {
+        // Causes simplex to be initialized again.
+        self.simplex.clear();
+        self.errors.clear();
+        self.sort_perm.clear();
+    }
 }
 
 /// Error returned from [`NelderMead`] solver.

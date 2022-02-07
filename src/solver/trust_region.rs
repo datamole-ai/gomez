@@ -156,6 +156,17 @@ where
             rejections_cnt: 0,
         }
     }
+
+    /// Resets the internal state of the solver.
+    pub fn reset(&mut self) {
+        self.delta = match self.options.delta_init {
+            DeltaInit::Fixed(fixed) => fixed,
+            DeltaInit::Estimated => F::Scalar::zero(),
+        };
+        self.mu = convert(0.5);
+        self.iter = 1;
+        self.rejections_cnt = 0;
+    }
 }
 
 /// Error returned from [`TrustRegion`] solver.

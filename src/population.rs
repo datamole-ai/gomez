@@ -99,6 +99,21 @@ where
         }
     }
 
+    /// Recreates the population with new individuals with given initializer.
+    pub fn reinit<R: Rng + ?Sized, I: PopulationInit<F>>(
+        &mut self,
+        f: &F,
+        dom: &Domain<F::Scalar>,
+        rng: &mut R,
+        initializer: &I,
+    ) where
+        F: Function,
+    {
+        initializer.init_all(f, dom, rng, self.individuals.iter_mut());
+        self.eval(f);
+        self.sort();
+    }
+
     /// Get the size of the population.
     pub fn len(&self) -> usize {
         self.individuals.len()
