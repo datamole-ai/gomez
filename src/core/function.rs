@@ -107,3 +107,20 @@ where
         Ok(norm)
     }
 }
+
+/// Extension trait for `Result<F::Scalar, Error>`.
+pub trait FunctionResultExt<T> {
+    /// If the result is [`Error::InvalidValue`], `Ok(default)` is returned
+    /// instead. The original result is returned otherwise.
+    fn ignore_invalid_value(self, replace_with: T) -> Self;
+}
+
+impl<T> FunctionResultExt<T> for Result<T, Error> {
+    fn ignore_invalid_value(self, replace_with: T) -> Self {
+        match self {
+            Ok(value) => Ok(value),
+            Err(Error::InvalidValue) => Ok(replace_with),
+            Err(error) => Err(error),
+        }
+    }
+}
