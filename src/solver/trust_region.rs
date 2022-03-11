@@ -238,6 +238,7 @@ where
             ..
         } = self;
 
+        #[allow(clippy::needless_late_init)]
         let scaled_newton: &mut OVector<F::Scalar, F::Dim>;
         let scale_inv2: &mut OVector<F::Scalar, F::Dim>;
         let cauchy_scaled: &mut OVector<F::Scalar, F::Dim>;

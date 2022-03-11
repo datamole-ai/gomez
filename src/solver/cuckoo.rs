@@ -395,7 +395,7 @@ where
     }
 }
 
-fn rand_perm<R: Rng + ?Sized>(perm: &mut Vec<usize>, rng: &mut R) {
+fn rand_perm<R: Rng + ?Sized>(perm: &mut [usize], rng: &mut R) {
     // Based on https://en.wikipedia.org/wiki/Permutation#Algorithms_to_generate_permutations.
     for i in 0..perm.len() {
         let d = Uniform::new_inclusive(0, i).sample(rng);
