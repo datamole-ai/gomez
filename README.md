@@ -19,13 +19,13 @@ implementation is benchmarked against with
 
 ## Algorithms
 
-* [Trust region](trust_region::TrustRegion) -- Recommended method to be used as
-  a default and it will just work in most of the cases.
-* [Cuckoo search](cuckoo::Cuckoo) -- A global optimization algorithm useful for
-  initial guesses search in combination with a numerical solver.
+* Trust region -- Recommended method to be used as a default and it will just
+  work in most of the cases.
+* Cuckoo search -- A global optimization algorithm useful for initial guesses
+  search in combination with a numerical solver.
 * Steffensen -- Fast and lightweight method for one-dimensional systems.
-* [Nelder-Mead](nelder_mead::NelderMead) -- Not generally recommended, but may
-  be useful for low-dimensionality problems with ill-defined Jacobian matrix.
+* Nelder-Mead -- Not generally recommended, but may be useful for
+  low-dimensionality problems with ill-defined Jacobian matrix.
 
 ## Roadmap
 
