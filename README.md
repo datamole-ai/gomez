@@ -23,6 +23,7 @@ implementation is benchmarked against with
   a default and it will just work in most of the cases.
 * [Cuckoo search](cuckoo::Cuckoo) -- A global optimization algorithm useful for
   initial guesses search in combination with a numerical solver.
+* Steffensen -- Fast and lightweight method for one-dimensional systems.
 * [Nelder-Mead](nelder_mead::NelderMead) -- Not generally recommended, but may
   be useful for low-dimensionality problems with ill-defined Jacobian matrix.
 
@@ -30,8 +31,6 @@ implementation is benchmarked against with
 
 Listed *not* in order of priority.
 
-* [Steffensen's method](https://en.wikipedia.org/wiki/Steffensen%27s_method) for
-  1D systems.
 * [Homotopy continuation
   method](http://homepages.math.uic.edu/~jan/srvart/node4.html) to compare the
   performance with Trust region method.
