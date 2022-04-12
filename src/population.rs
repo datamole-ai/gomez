@@ -16,7 +16,7 @@ use num_traits::Zero;
 use rand::Rng;
 use rand_distr::{uniform::SampleUniform, Distribution, Uniform};
 
-use crate::core::{Domain, Error, Function, Problem};
+use crate::core::{Domain, Function, Problem, ProblemError};
 
 /// Population in a population-based solving algorithm.
 ///
@@ -373,7 +373,7 @@ where
         &self,
         f: &F,
         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
-    ) -> Result<F::Scalar, Error>
+    ) -> Result<F::Scalar, ProblemError>
     where
         Sfx: StorageMut<F::Scalar, F::Dim>,
         F: Function,

@@ -5,7 +5,7 @@ use nalgebra::{
 };
 
 use super::{
-    base::{Error, Problem},
+    base::{Problem, ProblemError},
     domain::Domain,
 };
 
@@ -46,7 +46,7 @@ use super::{
 ///         &self,
 ///         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
 ///         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-///     ) -> Result<(), Error>
+///     ) -> Result<(), ProblemError>
 ///     where
 ///         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
 ///         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
@@ -65,7 +65,7 @@ pub trait System: Problem {
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), Error>
+    ) -> Result<(), ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>;
@@ -148,7 +148,7 @@ where
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), Error>
+    ) -> Result<(), ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,

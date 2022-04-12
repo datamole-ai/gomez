@@ -18,7 +18,7 @@ use getset::{CopyGetters, Setters};
 use nalgebra::{storage::StorageMut, Dim, IsContiguous, Vector};
 use thiserror::Error;
 
-use crate::core::{Domain, Error, Problem, Solver, System, VectorDomainExt};
+use crate::core::{Domain, Problem, ProblemError, Solver, System, VectorDomainExt};
 
 /// Variant of the Steffenen's method.
 #[derive(Debug, Clone, Copy)]
@@ -76,7 +76,7 @@ impl<F: Problem> Steffensen<F> {
 pub enum SteffensenError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    Problem(#[from] Error),
+    Problem(#[from] ProblemError),
 }
 
 impl<F: System> Solver<F> for Steffensen<F> {
@@ -96,7 +96,9 @@ impl<F: System> Solver<F> for Steffensen<F> {
         Sfx: StorageMut<<F>::Scalar, <F>::Dim>,
     {
         if f.dim().value() != 1 {
-            return Err(SteffensenError::Problem(Error::InvalidDimensionality));
+            return Err(SteffensenError::Problem(
+                ProblemError::InvalidDimensionality,
+            ));
         }
 
         let SteffensenOptions { variant, .. } = self.options;

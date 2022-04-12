@@ -30,7 +30,7 @@ use num_traits::Signed;
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Error, Problem, Solver, System},
+    core::{Domain, Problem, ProblemError, Solver, System},
     var,
 };
 
@@ -140,7 +140,7 @@ impl System for ExtendedRosenbrock {
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), Error>
+    ) -> Result<(), ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -235,7 +235,7 @@ impl System for ExtendedPowell {
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), Error>
+    ) -> Result<(), ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -320,7 +320,7 @@ impl System for BullardBiegler {
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), Error>
+    ) -> Result<(), ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -388,7 +388,7 @@ impl System for Sphere {
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), Error>
+    ) -> Result<(), ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -459,7 +459,7 @@ impl System for Brown {
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), Error>
+    ) -> Result<(), ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -524,7 +524,7 @@ impl System for Exponential {
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), Error>
+    ) -> Result<(), ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,

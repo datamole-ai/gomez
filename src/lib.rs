@@ -96,7 +96,7 @@
 //!         &self,
 //!         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
 //!         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-//!     ) -> Result<(), Error>
+//!     ) -> Result<(), ProblemError>
 //!     where
 //!         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
 //!         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
@@ -182,7 +182,7 @@
 //! #         &self,
 //! #         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
 //! #         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-//! #     ) -> Result<(), Error>
+//! #     ) -> Result<(), ProblemError>
 //! #     where
 //! #         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
 //! #         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
@@ -262,7 +262,8 @@ pub use nalgebra;
 pub mod prelude {
     pub use crate::{
         core::{
-            Domain, Error, Function, Optimizer, Problem, Solver, System, Variable, VariableBuilder,
+            Domain, Function, Optimizer, Problem, ProblemError, Solver, System, Variable,
+            VariableBuilder,
         },
         var,
     };

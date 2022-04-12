@@ -5,7 +5,7 @@ use nalgebra::{
 use num_traits::Zero;
 
 use super::{
-    base::{Error, Problem},
+    base::{Problem, ProblemError},
     system::System,
 };
 
@@ -45,7 +45,7 @@ use super::{
 ///     fn apply<Sx>(
 ///         &self,
 ///         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
-///     ) -> Result<Self::Scalar, Error>
+///     ) -> Result<Self::Scalar, ProblemError>
 ///     where
 ///         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
 ///     {
@@ -56,7 +56,10 @@ use super::{
 /// ```
 pub trait Function: Problem {
     /// Calculate the function value given values of the variables.
-    fn apply<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>) -> Result<Self::Scalar, Error>
+    fn apply<Sx>(
+        &self,
+        x: &Vector<Self::Scalar, Self::Dim, Sx>,
+    ) -> Result<Self::Scalar, ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous;
 
@@ -70,7 +73,7 @@ pub trait Function: Problem {
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<Self::Scalar, Error>
+    ) -> Result<Self::Scalar, ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -86,7 +89,10 @@ impl<F: System> Function for F
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
-    fn apply<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>) -> Result<Self::Scalar, Error>
+    fn apply<Sx>(
+        &self,
+        x: &Vector<Self::Scalar, Self::Dim, Sx>,
+    ) -> Result<Self::Scalar, ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
     {
@@ -98,7 +104,7 @@ where
         &self,
         x: &Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<Self::Scalar, Error>
+    ) -> Result<Self::Scalar, ProblemError>
     where
         Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
@@ -111,16 +117,16 @@ where
 
 /// Extension trait for `Result<F::Scalar, Error>`.
 pub trait FunctionResultExt<T> {
-    /// If the result is [`Error::InvalidValue`], `Ok(default)` is returned
-    /// instead. The original result is returned otherwise.
+    /// If the result is [`ProblemError::InvalidValue`], `Ok(default)` is
+    /// returned instead. The original result is returned otherwise.
     fn ignore_invalid_value(self, replace_with: T) -> Self;
 }
 
-impl<T> FunctionResultExt<T> for Result<T, Error> {
+impl<T> FunctionResultExt<T> for Result<T, ProblemError> {
     fn ignore_invalid_value(self, replace_with: T) -> Self {
         match self {
             Ok(value) => Ok(value),
-            Err(Error::InvalidValue) => Ok(replace_with),
+            Err(ProblemError::InvalidValue) => Ok(replace_with),
             Err(error) => Err(error),
         }
     }

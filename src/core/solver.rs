@@ -41,7 +41,7 @@ use super::{domain::Domain, system::System};
 ///     F::Scalar: SampleUniform,
 /// {
 ///     const NAME: &'static str = "Random";
-///     type Error = Error;
+///     type Error = ProblemError;
 ///
 ///     fn next<Sx, Sfx>(
 ///         &mut self,
@@ -72,7 +72,8 @@ pub trait Solver<F: System> {
 
     /// Error type of the iteration. Represents an invalid operation during
     /// computing the next step. It is usual that one of the error kinds is
-    /// propagation of the [`Error`](super::Error) from the system.
+    /// propagation of the [`ProblemError`](super::ProblemError) from the
+    /// system.
     type Error;
 
     /// Computes the next step in the solving process.

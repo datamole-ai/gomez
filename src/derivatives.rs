@@ -11,7 +11,7 @@ use nalgebra::{
 use num_traits::{One, Zero};
 use thiserror::Error;
 
-use crate::core::{Error, Problem, System};
+use crate::core::{Problem, ProblemError, System};
 
 /// Square root of double precision machine epsilon. This value is a standard
 /// constant for epsilons in approximating derivate-based concepts.
@@ -22,7 +22,7 @@ pub const EPSILON_SQRT: f64 = 0.000000014901161193847656;
 pub enum JacobianError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    Problem(#[from] Error),
+    Problem(#[from] ProblemError),
 }
 
 /// Jacobian matrix of a system.

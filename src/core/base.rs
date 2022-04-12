@@ -25,9 +25,9 @@ pub trait Problem {
     }
 }
 
-/// Error encountered while applying variables to the function.
+/// Error encountered while applying variables to the problem.
 #[derive(Debug, Error)]
-pub enum Error {
+pub enum ProblemError {
     /// The number of variables does not match the dimensionality
     /// ([`Problem::dim`]) of the problem.
     #[error("invalid dimensionality")]

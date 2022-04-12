@@ -32,7 +32,7 @@ use rand_distr::{uniform::SampleUniform, Distribution, StandardNormal, Uniform};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Error, Function, Optimizer, Problem, Solver, System},
+    core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System},
     population::{Population, PopulationInit, PopulationSize, UniformInit},
 };
 
@@ -193,7 +193,7 @@ where
 pub enum CuckooError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    Problem(#[from] Error),
+    Problem(#[from] ProblemError),
 }
 
 impl<F: Function, I: PopulationInit<F>, R: Rng> Cuckoo<F, I, R>

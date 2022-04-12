@@ -40,7 +40,7 @@ use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Error, Problem, Solver, System, VectorDomainExt},
+    core::{Domain, Problem, ProblemError, Solver, System, VectorDomainExt},
     derivatives::{Jacobian, JacobianError, EPSILON_SQRT},
 };
 
@@ -175,7 +175,7 @@ where
 pub enum TrustRegionError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    Problem(#[from] Error),
+    Problem(#[from] ProblemError),
     /// Error that occurred when computing the Jacobian matrix.
     #[error("{0}")]
     Jacobian(#[from] JacobianError),

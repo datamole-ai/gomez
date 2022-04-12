@@ -16,7 +16,7 @@ use nalgebra::{
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Error, Problem, System},
+    core::{Domain, Problem, ProblemError, System},
     derivatives::{Jacobian, JacobianError, EPSILON_SQRT},
 };
 
@@ -25,7 +25,7 @@ use crate::{
 pub enum InitialGuessAnalysisError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    System(#[from] Error),
+    System(#[from] ProblemError),
     /// Error that occurred when computing the Jacobian matrix.
     #[error("{0}")]
     Jacobian(#[from] JacobianError),

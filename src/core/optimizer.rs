@@ -41,7 +41,7 @@ use super::{domain::Domain, function::Function};
 ///     F::Scalar: SampleUniform,
 /// {
 ///     const NAME: &'static str = "Random";
-///     type Error = Error;
+///     type Error = ProblemError;
 ///
 ///     fn next<Sx>(
 ///         &mut self,
@@ -69,7 +69,8 @@ pub trait Optimizer<F: Function> {
 
     /// Error type of the iteration. Represents an invalid operation during
     /// computing the next step. It is usual that one of the error kinds is
-    /// propagation of the [`Error`](super::Error) from the function.
+    /// propagation of the [`ProblemError`](super::ProblemError) from the
+    /// function.
     type Error;
 
     /// Computes the next step in the optimization process.

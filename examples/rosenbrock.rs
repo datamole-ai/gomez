@@ -23,7 +23,7 @@ impl System for Rosenbrock {
         &self,
         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
-    ) -> Result<(), Error>
+    ) -> Result<(), ProblemError>
     where
         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,

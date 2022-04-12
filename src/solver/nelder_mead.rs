@@ -30,7 +30,7 @@ use thiserror::Error;
 
 use crate::{
     core::{
-        Domain, Error, Function, FunctionResultExt, Optimizer, Problem, Solver, System,
+        Domain, Function, FunctionResultExt, Optimizer, Problem, ProblemError, Solver, System,
         VectorDomainExt,
     },
     derivatives::EPSILON_SQRT,
@@ -182,7 +182,7 @@ where
 pub enum NelderMeadError {
     /// Error that occurred when evaluating the system.
     #[error("{0}")]
-    Problem(#[from] Error),
+    Problem(#[from] ProblemError),
     /// Simplex collapsed so it is impossible to make any progress.
     #[error("simplex collapsed")]
     SimplexCollapsed,
@@ -249,7 +249,7 @@ where
                     // hope that it gets replaced. The exception is the very
                     // point provided by the caller as it is expected to be
                     // valid and it is erroneous situation if it is not.
-                    Err(Error::InvalidValue) => inf,
+                    Err(ProblemError::InvalidValue) => inf,
                     Err(error) => {
                         // Clear the simplex so the solver is not in invalid
                         // state.
@@ -274,7 +274,7 @@ where
                 // The simplex is too degenerate.
                 simplex.clear();
                 errors.clear();
-                return Err(NelderMeadError::Problem(Error::InvalidValue));
+                return Err(NelderMeadError::Problem(ProblemError::InvalidValue));
             }
 
             sort_perm.extend(0..=n);
