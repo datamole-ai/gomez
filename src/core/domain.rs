@@ -6,9 +6,9 @@ use nalgebra::{storage::StorageMut, Dim, RealField, Vector};
 
 /// [`Variable`] builder type.
 #[derive(Debug, Clone, Copy)]
-pub struct VariableBuilder<T: RealField>(Variable<T>);
+pub struct VariableBuilder<T: RealField + Copy>(Variable<T>);
 
-impl<T: RealField> VariableBuilder<T> {
+impl<T: RealField + Copy> VariableBuilder<T> {
     fn new() -> Self {
         Self(Variable::new())
     }
@@ -41,12 +41,12 @@ impl<T: RealField> VariableBuilder<T> {
 /// * [`Magnitude`](Variable::set_magnitude) is used to compensate scaling
 ///   discrepancies between different variables.
 #[derive(Debug, Clone, Copy)]
-pub struct Variable<T: RealField> {
+pub struct Variable<T: RealField + Copy> {
     bounds: (T, T),
     magnitude: T,
 }
 
-impl<T: RealField> Variable<T> {
+impl<T: RealField + Copy> Variable<T> {
     /// Creates new unconstrained variable with magnitude 1.
     pub fn new() -> Self {
         let inf = T::from_subset(&f64::INFINITY);
@@ -129,19 +129,19 @@ impl<T: RealField> Variable<T> {
     }
 }
 
-impl<T: RealField> Default for Variable<T> {
+impl<T: RealField + Copy> Default for Variable<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField> From<VariableBuilder<T>> for Variable<T> {
+impl<T: RealField + Copy> From<VariableBuilder<T>> for Variable<T> {
     fn from(def: VariableBuilder<T>) -> Self {
         def.finalize()
     }
 }
 
-fn estimate_magnitude<T: RealField>(lower: T, upper: T) -> T {
+fn estimate_magnitude<T: RealField + Copy>(lower: T, upper: T) -> T {
     let ten = T::from_subset(&10.0);
     let half = T::from_subset(&0.5);
 
@@ -198,11 +198,11 @@ macro_rules! var {
 
 /// A set of [`Variable`] definitions.
 // TODO: Add generic type for nalgebra dimension?
-pub struct Domain<T: RealField> {
+pub struct Domain<T: RealField + Copy> {
     vars: Vec<Variable<T>>,
 }
 
-impl<T: RealField> Domain<T> {
+impl<T: RealField + Copy> Domain<T> {
     /// Creates unconstrained domain with given dimension.
     pub fn with_dim(n: usize) -> Self {
         (0..n).map(|_| Variable::default()).collect()
@@ -225,13 +225,13 @@ impl<T: RealField> Domain<T> {
     }
 }
 
-impl<T: RealField> FromIterator<Variable<T>> for Domain<T> {
+impl<T: RealField + Copy> FromIterator<Variable<T>> for Domain<T> {
     fn from_iter<I: IntoIterator<Item = Variable<T>>>(iter: I) -> Self {
         Self::with_vars(iter.into_iter().collect())
     }
 }
 
-impl<T: RealField> From<Vec<Variable<T>>> for Domain<T> {
+impl<T: RealField + Copy> From<Vec<Variable<T>>> for Domain<T> {
     fn from(vars: Vec<Variable<T>>) -> Self {
         Self::with_vars(vars)
     }
@@ -239,14 +239,14 @@ impl<T: RealField> From<Vec<Variable<T>>> for Domain<T> {
 
 /// Domain-related extension methods for [`Vector`], which is a common storage
 /// for variable values.
-pub trait VectorDomainExt<T: RealField, D: Dim> {
+pub trait VectorDomainExt<T: RealField + Copy, D: Dim> {
     /// Clamp all values within corresponding bounds and returns if the original
     /// value was outside of bounds (in other bounds, the point was not
     /// feasible).
     fn project(&mut self, dom: &Domain<T>) -> bool;
 }
 
-impl<T: RealField, D: Dim, S> VectorDomainExt<T, D> for Vector<T, D, S>
+impl<T: RealField + Copy, D: Dim, S> VectorDomainExt<T, D> for Vector<T, D, S>
 where
     S: StorageMut<T, D>,
 {

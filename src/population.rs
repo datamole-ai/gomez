@@ -330,7 +330,7 @@ where
 /// # let mut population = Population::zeros(&f, PopulationSize::Adaptive);
 /// #
 /// for mut x in population.iter_mut() {
-///     x.apply(|_| rng.sample(StandardNormal));
+///     x.apply(|xi| *xi = rng.sample(StandardNormal));
 ///     let error = x.eval(&f, &mut fx).unwrap();
 ///     // Without the following line the code would panic!
 ///     // Because `x.apply` mutably borrows `x`.

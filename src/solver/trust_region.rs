@@ -348,7 +348,7 @@ where
                 // Compute D^(-2) (use p for storage).
                 scale_inv2 = p;
                 scale_inv2.copy_from(scale);
-                scale_inv2.apply(|s| F::Scalar::one() / (s * s));
+                scale_inv2.apply(|s| *s = F::Scalar::one() / (*s * *s));
 
                 // Compute g = -D^(-2) grad F, the steepest descent direction in
                 // scaled space (use cauchy for storage).

@@ -252,7 +252,7 @@ where
             }
 
             *next *= scale_factor;
-            next.apply(|uj| uj * rng.sample(StandardNormal));
+            next.apply(|uj| *uj *= rng.sample(StandardNormal));
             *next += &*temp;
 
             // Make sure that the candidate is in domain.
@@ -289,10 +289,10 @@ where
             temp.copy_from(&next_gen.get(rand_perm2[i]).unwrap());
             *next -= &*temp;
             next.apply(|uj| {
-                if rng.gen_bool(abandon_prob) {
+                *uj = if rng.gen_bool(abandon_prob) {
                     F::Scalar::zero()
                 } else {
-                    uj * convert(rng.gen_range(0f64..=1.0))
+                    *uj * convert(rng.gen_range(0f64..=1.0))
                 }
             });
             temp.copy_from(&x);

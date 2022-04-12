@@ -7,7 +7,7 @@ use super::domain::Domain;
 /// [`Function`](super::function::Function).
 pub trait Problem {
     /// Type of the scalar, usually f32 or f64.
-    type Scalar: RealField;
+    type Scalar: RealField + Copy;
 
     /// Dimension of the system. Can be fixed
     /// ([`Const`](nalgebra::base::dimension::Const)) or dynamic
