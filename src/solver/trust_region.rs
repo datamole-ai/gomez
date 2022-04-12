@@ -33,7 +33,8 @@ use nalgebra::{
     allocator::{Allocator, Reallocator},
     convert,
     storage::StorageMut,
-    ComplexField, DefaultAllocator, Dim, DimMin, DimName, OMatrix, OVector, RealField, Vector, U1,
+    ComplexField, DefaultAllocator, Dim, DimMin, DimName, IsContiguous, OMatrix, OVector,
+    RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
 use thiserror::Error;
@@ -206,7 +207,7 @@ where
         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
         Sfx: StorageMut<F::Scalar, F::Dim>,
     {
         let TrustRegionOptions {

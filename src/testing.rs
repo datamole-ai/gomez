@@ -23,7 +23,8 @@ use std::error::Error as StdError;
 use nalgebra::{
     allocator::Allocator,
     storage::{Storage, StorageMut},
-    vector, DVector, DefaultAllocator, Dim, DimName, Dynamic, OVector, Vector, U1, U2,
+    vector, DVector, DefaultAllocator, Dim, DimName, Dynamic, IsContiguous, OVector, Vector, U1,
+    U2,
 };
 use num_traits::Signed;
 use thiserror::Error;
@@ -55,7 +56,7 @@ where
     /// Test if given point is a root of the system, given the tolerance `eps`.
     fn is_root<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>, eps: Self::Scalar) -> bool
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
     {
         let mut fx = x.clone_owned();
         if self.eval(x, &mut fx).is_ok() {
@@ -141,7 +142,7 @@ impl System for ExtendedRosenbrock {
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<(), Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
         for i in 0..(self.n / 2) {
@@ -236,7 +237,7 @@ impl System for ExtendedPowell {
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<(), Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
         for i in 0..(self.n / 4) {
@@ -321,7 +322,7 @@ impl System for BullardBiegler {
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<(), Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
         fx[0] = 1e4 * x[0] * x[1] - 1.0;
@@ -389,7 +390,7 @@ impl System for Sphere {
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<(), Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
         for i in 0..self.n {
@@ -460,7 +461,7 @@ impl System for Brown {
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<(), Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
         fx[0] = x.iter().product::<f64>() - 1.0;
@@ -525,7 +526,7 @@ impl System for Exponential {
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<(), Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
         for i in 0..self.n {

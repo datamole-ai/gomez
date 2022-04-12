@@ -1,7 +1,7 @@
 use gomez::nalgebra as na;
 use gomez::prelude::*;
 use gomez::solver::TrustRegion;
-use na::{Dim, DimName};
+use na::{Dim, DimName, IsContiguous};
 
 // https://en.wikipedia.org/wiki/Rosenbrock_function
 struct Rosenbrock {
@@ -25,7 +25,7 @@ impl System for Rosenbrock {
         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<(), Error>
     where
-        Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
+        Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
     {
         fx[0] = (self.a - x[0]).powi(2);

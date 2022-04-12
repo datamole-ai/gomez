@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 
 use nalgebra::{
     allocator::Allocator, convert, storage::StorageMut, ComplexField, DefaultAllocator, DimMin,
-    DimName, OVector, Vector, U1,
+    DimName, IsContiguous, OVector, Vector, U1,
 };
 use thiserror::Error;
 
@@ -52,7 +52,7 @@ where
         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
     ) -> Result<Self, InitialGuessAnalysisError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
         Sfx: StorageMut<F::Scalar, F::Dim>,
     {
         let scale_iter = dom.vars().iter().map(|var| var.scale());

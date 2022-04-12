@@ -1,5 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use gomez::{
+    nalgebra as na,
     prelude::*,
     solver::{NelderMead, TrustRegion},
     testing::*,
@@ -9,7 +10,7 @@ use gsl_wrapper::{
     multiroot::{Solver as GslSolver, SolverType::HybridScaled},
     prelude::*,
 };
-use nalgebra as na;
+use na::IsContiguous;
 
 const MAX_ITERS: usize = 1_000_000;
 const TOLERANCE: f64 = 1e-12;
@@ -275,7 +276,7 @@ where
         fx: &mut na::Vector<F::Scalar, F::Dim, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: na::storage::StorageMut<F::Scalar, F::Dim>,
+        Sx: na::storage::StorageMut<F::Scalar, F::Dim> + IsContiguous,
         Sfx: na::storage::StorageMut<F::Scalar, F::Dim>,
     {
         let result = self.solver.step().to_result();

@@ -1,4 +1,4 @@
-use nalgebra::{storage::StorageMut, Vector};
+use nalgebra::{storage::StorageMut, IsContiguous, Vector};
 
 use super::{domain::Domain, function::Function};
 
@@ -22,7 +22,7 @@ use super::{domain::Domain, function::Function};
 /// ```rust
 /// use gomez::nalgebra as na;
 /// use gomez::core::*;
-/// use na::{storage::StorageMut, Vector};
+/// use na::{storage::StorageMut, IsContiguous, Vector};
 /// use rand::Rng;
 /// use rand_distr::{uniform::SampleUniform, Distribution, Uniform};
 ///
@@ -50,7 +50,7 @@ use super::{domain::Domain, function::Function};
 ///         x: &mut Vector<F::Scalar, F::Dim, Sx>,
 ///     ) -> Result<F::Scalar, Self::Error>
 ///     where
-///         Sx: StorageMut<F::Scalar, F::Dim>,
+///         Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
 ///     {
 ///         // Randomly sample within the bounds.
 ///         x.iter_mut().zip(dom.vars().iter()).for_each(|(xi, vi)| {
@@ -92,5 +92,5 @@ pub trait Optimizer<F: Function> {
         x: &mut Vector<F::Scalar, F::Dim, Sx>,
     ) -> Result<F::Scalar, Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>;
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous;
 }

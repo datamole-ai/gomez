@@ -24,7 +24,7 @@ use nalgebra::{
     allocator::{Allocator, Reallocator},
     convert,
     storage::StorageMut,
-    DefaultAllocator, DimMin, DimName, Dynamic, OVector, Vector, U1,
+    DefaultAllocator, DimMin, DimName, Dynamic, IsContiguous, OVector, Vector, U1,
 };
 use num_traits::{Float, Zero};
 use rand::Rng;
@@ -213,7 +213,7 @@ where
         x: &mut Vector<F::Scalar, F::Dim, Sx>,
     ) -> Result<F::Scalar, CuckooError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
     {
         let CuckooOptions {
             scale_factor,
@@ -360,7 +360,7 @@ where
         x: &mut Vector<F::Scalar, F::Dim, Sx>,
     ) -> Result<F::Scalar, Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
     {
         self.next_inner(f, dom, x)
     }
@@ -387,7 +387,7 @@ where
         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
         Sfx: StorageMut<F::Scalar, F::Dim>,
     {
         self.next_inner(f, dom, x)

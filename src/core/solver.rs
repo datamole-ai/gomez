@@ -1,4 +1,4 @@
-use nalgebra::{storage::StorageMut, Vector};
+use nalgebra::{storage::StorageMut, IsContiguous, Vector};
 
 use super::{domain::Domain, system::System};
 
@@ -22,7 +22,7 @@ use super::{domain::Domain, system::System};
 /// ```rust
 /// use gomez::nalgebra as na;
 /// use gomez::core::*;
-/// use na::{storage::StorageMut, Vector};
+/// use na::{storage::StorageMut, IsContiguous, Vector};
 /// use rand::Rng;
 /// use rand_distr::{uniform::SampleUniform, Distribution, Uniform};
 ///
@@ -51,7 +51,7 @@ use super::{domain::Domain, system::System};
 ///         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
 ///     ) -> Result<(), Self::Error>
 ///     where
-///         Sx: StorageMut<F::Scalar, F::Dim>,
+///         Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
 ///         Sfx: StorageMut<F::Scalar, F::Dim>,
 ///     {
 ///         // Randomly sample within the bounds.
@@ -96,6 +96,6 @@ pub trait Solver<F: System> {
         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
         Sfx: StorageMut<F::Scalar, F::Dim>;
 }

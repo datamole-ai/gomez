@@ -15,7 +15,7 @@
 use std::marker::PhantomData;
 
 use getset::{CopyGetters, Setters};
-use nalgebra::{storage::StorageMut, Dim, Vector};
+use nalgebra::{storage::StorageMut, Dim, IsContiguous, Vector};
 use thiserror::Error;
 
 use crate::core::{Domain, Error, Problem, Solver, System, VectorDomainExt};
@@ -92,7 +92,7 @@ impl<F: System> Solver<F> for Steffensen<F> {
         fx: &mut Vector<<F>::Scalar, <F>::Dim, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<<F>::Scalar, <F>::Dim>,
+        Sx: StorageMut<<F>::Scalar, <F>::Dim> + IsContiguous,
         Sfx: StorageMut<<F>::Scalar, <F>::Dim>,
     {
         if f.dim().value() != 1 {

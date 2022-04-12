@@ -23,7 +23,7 @@ use nalgebra::{
     allocator::Allocator,
     convert,
     storage::{Storage, StorageMut},
-    DefaultAllocator, Dim, DimName, OVector, RealField, Vector, U1,
+    DefaultAllocator, Dim, DimName, IsContiguous, OVector, RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
 use thiserror::Error;
@@ -200,7 +200,7 @@ where
         x: &mut Vector<<F>::Scalar, <F>::Dim, Sx>,
     ) -> Result<F::Scalar, NelderMeadError>
     where
-        Sx: StorageMut<<F>::Scalar, <F>::Dim>,
+        Sx: StorageMut<<F>::Scalar, <F>::Dim> + IsContiguous,
     {
         let NelderMeadOptions {
             reflection_coeff,
@@ -488,7 +488,7 @@ where
         x: &mut Vector<F::Scalar, F::Dim, Sx>,
     ) -> Result<F::Scalar, Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
     {
         self.next_inner(f, dom, x)
     }
@@ -511,7 +511,7 @@ where
         fx: &mut Vector<<F>::Scalar, <F>::Dim, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<<F>::Scalar, <F>::Dim>,
+        Sx: StorageMut<<F>::Scalar, <F>::Dim> + IsContiguous,
         Sfx: StorageMut<<F>::Scalar, <F>::Dim>,
     {
         self.next_inner(f, dom, x).map(|_| {

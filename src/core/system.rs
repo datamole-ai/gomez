@@ -1,7 +1,7 @@
 use nalgebra::{
     allocator::Allocator,
     storage::{Storage, StorageMut},
-    DefaultAllocator, OVector, Vector,
+    DefaultAllocator, IsContiguous, OVector, Vector,
 };
 
 use super::{
@@ -20,7 +20,7 @@ use super::{
 /// ```rust
 /// use gomez::nalgebra as na;
 /// use gomez::prelude::*;
-/// use na::{Dim, DimName};
+/// use na::{Dim, DimName, IsContiguous};
 ///
 /// // A problem is represented by a type.
 /// struct Rosenbrock {
@@ -48,7 +48,7 @@ use super::{
 ///         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
 ///     ) -> Result<(), Error>
 ///     where
-///         Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
+///         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
 ///         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
 ///     {
 ///         // Compute the residuals of all equations.
@@ -67,7 +67,7 @@ pub trait System: Problem {
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<(), Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>;
 }
 
@@ -150,7 +150,7 @@ where
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<(), Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
         // TODO: RepulsiveSystem should adjust the residuals of the inner system

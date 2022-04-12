@@ -6,7 +6,7 @@ use nalgebra::{
     allocator::Allocator,
     convert,
     storage::{Storage, StorageMut},
-    ComplexField, DefaultAllocator, OMatrix, RealField, Vector,
+    ComplexField, DefaultAllocator, IsContiguous, OMatrix, RealField, Vector,
 };
 use num_traits::{One, Zero};
 use thiserror::Error;
@@ -60,7 +60,7 @@ where
         fx: &Vector<F::Scalar, F::Dim, Sfx>,
     ) -> Result<Self, JacobianError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
         Sscale: Storage<F::Scalar, F::Dim>,
         Sfx: Storage<F::Scalar, F::Dim>,
     {
@@ -86,7 +86,7 @@ where
         fx: &Vector<F::Scalar, F::Dim, Sfx>,
     ) -> Result<&mut Self, JacobianError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
         Sscale: Storage<F::Scalar, F::Dim>,
         Sfx: Storage<F::Scalar, F::Dim>,
     {

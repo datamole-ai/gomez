@@ -1,5 +1,6 @@
 use nalgebra::{
-    allocator::Allocator, storage::Storage, storage::StorageMut, DefaultAllocator, Vector,
+    allocator::Allocator, storage::Storage, storage::StorageMut, DefaultAllocator, IsContiguous,
+    Vector,
 };
 use num_traits::Zero;
 
@@ -19,7 +20,7 @@ use super::{
 /// ```rust
 /// use gomez::nalgebra as na;
 /// use gomez::prelude::*;
-/// use na::{Dim, DimName};
+/// use na::{Dim, DimName, IsContiguous};
 ///
 /// // A problem is represented by a type.
 /// struct Rosenbrock {
@@ -46,7 +47,7 @@ use super::{
 ///         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
 ///     ) -> Result<Self::Scalar, Error>
 ///     where
-///         Sx: na::storage::Storage<Self::Scalar, Self::Dim>,
+///         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
 ///     {
 ///         // Compute the function value.
 ///         Ok((self.a - x[0]).powi(2) + self.b * (x[1] - x[0].powi(2)).powi(2))
@@ -57,7 +58,7 @@ pub trait Function: Problem {
     /// Calculate the function value given values of the variables.
     fn apply<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>) -> Result<Self::Scalar, Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>;
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous;
 
     /// Calculate the norm of residuals of the system given values of the
     /// variable for cases when the function is actually a system of equations.
@@ -71,7 +72,7 @@ pub trait Function: Problem {
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<Self::Scalar, Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
         let norm = self.apply(x)?;
@@ -87,7 +88,7 @@ where
 {
     fn apply<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>) -> Result<Self::Scalar, Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
     {
         let mut fx = x.clone_owned();
         self.apply_eval(x, &mut fx)
@@ -99,7 +100,7 @@ where
         fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
     ) -> Result<Self::Scalar, Error>
     where
-        Sx: Storage<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Self::Dim>,
     {
         self.eval(x, fx)?;
