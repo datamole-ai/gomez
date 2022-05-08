@@ -1,6 +1,23 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2022-04-12
+
+### Documentation
+
+- Fix list of algorithms in README ([53f300d](../../commit/53f300d3dc50fa4f19a682fecf3b30899ba6e939))
+
+### Features
+
+- Implement Steffensen's method for 1D systems ([422eeae](../../commit/422eeae025bc86cab61deb086b0ffaae83c1f393))
+- Update nalgebra to v0.30 ([e31c75a](../../commit/e31c75ac2734a0a81d439dc5544798b02f2c1123))
+- Require contiguous storage for x values ([b63317d](../../commit/b63317d7b02f84c8b6a63eb80cd5145e67b07322))
+- Rename Error to ProblemError ([0aa2397](../../commit/0aa2397fb78fbf0ac606d3f28caf96d3bca683b3))
+
+### Miscellaneous Tasks
+
+- Fix new clippy warnings ([c84446a](../../commit/c84446ad273c556600ccc27417c0f78694bcc1ca))
+
 ## [0.2.1] - 2022-02-07
 
 ### Documentation
