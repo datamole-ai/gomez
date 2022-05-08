@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2022-05-08
+
+### Features
+
+- Update nalgebra to v0.31 ([009ae58](../../commit/009ae580e811ab192b6987e85a8a0ff0acca1493))
+
 ## [0.3.0] - 2022-04-12
 
 ### Documentation

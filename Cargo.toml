@@ -1,6 +1,6 @@
 [package]
 name = "gomez"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Petr Nevyhoštěný <petr.nevyhosteny@gmail.com>"]
 description = "A pure Rust framework and implementation of (derivative-free) methods for solving nonlinear (bound-constrained) systems of equations."
 documentation = "https://docs.rs/gomez/"
