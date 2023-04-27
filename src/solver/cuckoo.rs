@@ -37,7 +37,7 @@ use crate::{
 };
 
 /// Direction when performing local search for an individual.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LocalWalkDirection {
     /// Individuals are attracted to the best individual in the population.
     TowardsBest,

@@ -134,7 +134,7 @@ where
 impl<F> Drop for Solver<F> {
     fn drop(&mut self) {
         unsafe {
-            Box::from_raw(self.func.params as *mut F);
+            drop(Box::from_raw(self.func.params as *mut F));
             gsl_sys::gsl_multiroot_fsolver_free(self.solver.as_ptr());
         }
     }

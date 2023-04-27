@@ -565,7 +565,7 @@ where
                 predicted <= F::Scalar::zero()
             };
 
-            let gain_ratio = if deny {
+            if deny {
                 if allow_ascent {
                     debug!("predicted gain = 0");
                 } else {
@@ -578,9 +578,7 @@ where
                 debug!("gain ratio = {} / {} = {}", actual, predicted, gain_ratio);
 
                 gain_ratio
-            };
-
-            gain_ratio
+            }
         } else {
             debug!("trial step is invalid, gain ratio = 0");
             F::Scalar::zero()

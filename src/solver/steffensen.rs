@@ -87,13 +87,13 @@ impl<F: System> Solver<F> for Steffensen<F> {
     fn next<Sx, Sfx>(
         &mut self,
         f: &F,
-        dom: &Domain<<F>::Scalar>,
-        x: &mut Vector<<F>::Scalar, <F>::Dim, Sx>,
-        fx: &mut Vector<<F>::Scalar, <F>::Dim, Sfx>,
+        dom: &Domain<F::Scalar>,
+        x: &mut Vector<F::Scalar, F::Dim, Sx>,
+        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<<F>::Scalar, <F>::Dim> + IsContiguous,
-        Sfx: StorageMut<<F>::Scalar, <F>::Dim>,
+        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
+        Sfx: StorageMut<F::Scalar, F::Dim>,
     {
         if f.dim().value() != 1 {
             return Err(SteffensenError::Problem(
