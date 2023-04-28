@@ -174,7 +174,7 @@ mod tests {
             let mut options = SteffensenOptions::default();
             options.set_variant(SteffensenVariant::Standard);
             let solver = Steffensen::with_options(&f, &dom, options);
-            f.is_root(&solve(&f, &dom, solver, x, 40, eps).unwrap(), eps);
+            assert!(f.is_root(&solve(&f, &dom, solver, x, 40, eps).unwrap(), eps));
         }
     }
 
@@ -188,7 +188,7 @@ mod tests {
             let mut options = SteffensenOptions::default();
             options.set_variant(SteffensenVariant::Liu);
             let solver = Steffensen::with_options(&f, &dom, options);
-            f.is_root(&solve(&f, &dom, solver, x, 15, eps).unwrap(), eps);
+            assert!(f.is_root(&solve(&f, &dom, solver, x, 15, eps).unwrap(), eps));
         }
     }
 }

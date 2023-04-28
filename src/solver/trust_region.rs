@@ -673,7 +673,7 @@ mod tests {
 
         for x in f.initials() {
             let solver = TrustRegion::new(&f, &dom);
-            f.is_root(&solve(&f, &dom, solver, x, 25, eps).unwrap(), eps);
+            assert!(f.is_root(&solve(&f, &dom, solver, x, 25, eps).unwrap(), eps));
         }
     }
 
@@ -688,7 +688,7 @@ mod tests {
 
         for x in f.initials() {
             let solver = TrustRegion::new(&f, &dom);
-            f.is_root(&solve(&f, &dom, solver, x, 50, eps).unwrap(), eps);
+            assert!(f.is_root(&solve(&f, &dom, solver, x, 50, eps).unwrap(), eps));
         }
     }
 

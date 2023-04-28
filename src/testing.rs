@@ -26,7 +26,6 @@ use nalgebra::{
     vector, DVector, DefaultAllocator, Dim, DimName, Dynamic, IsContiguous, OVector, Vector, U1,
     U2,
 };
-use num_traits::Signed;
 use thiserror::Error;
 
 use crate::{
@@ -60,7 +59,7 @@ where
     {
         let mut fx = x.clone_owned();
         if self.eval(x, &mut fx).is_ok() {
-            fx.iter().all(|fxi| fxi.abs() <= eps)
+            fx.norm() <= eps
         } else {
             false
         }
@@ -574,7 +573,7 @@ where
     loop {
         solver.next(f, dom, &mut x, &mut fx)?;
 
-        if fx.norm() < tolerance {
+        if fx.norm() <= tolerance {
             return Ok(x);
         }
 
