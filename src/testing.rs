@@ -543,6 +543,60 @@ impl TestSystem for Exponential {
     }
 }
 
+/// This system is true for any assignment of x.
+#[derive(Debug, Clone, Copy)]
+pub struct InfiniteSolutions {
+    n: usize,
+}
+
+impl InfiniteSolutions {
+    /// Initializes the system with given dimension.
+    pub fn new(n: usize) -> Self {
+        assert!(n > 0, "n must be greater than zero");
+        Self { n }
+    }
+}
+
+impl Default for InfiniteSolutions {
+    fn default() -> Self {
+        Self { n: 1 }
+    }
+}
+
+impl Problem for InfiniteSolutions {
+    type Scalar = f64;
+    type Dim = Dynamic;
+
+    fn dim(&self) -> Self::Dim {
+        Dynamic::from_usize(self.n)
+    }
+}
+
+impl System for InfiniteSolutions {
+    fn eval<Sx, Sfx>(
+        &self,
+        _x: &Vector<Self::Scalar, Self::Dim, Sx>,
+        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+    ) -> Result<(), ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+    {
+        for i in 0..self.n {
+            fx[i] = 0.0;
+        }
+
+        Ok(())
+    }
+}
+
+impl TestSystem for InfiniteSolutions {
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+        let init = DVector::zeros_generic(Dynamic::from_usize(self.n), U1::name());
+        vec![init]
+    }
+}
+
 /// Solving error of the testing solver driver (see [`solve`]).
 #[derive(Debug, Error)]
 pub enum SolveError<E: StdError + 'static> {

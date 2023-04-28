@@ -191,4 +191,16 @@ mod tests {
             assert!(f.is_root(&solve(&f, &dom, solver, x, 15, eps).unwrap(), eps));
         }
     }
+
+    #[test]
+    fn infinite_solutions() {
+        let f = InfiniteSolutions::default();
+        let dom = f.domain();
+        let eps = convert(1e-12);
+
+        for x in f.initials() {
+            let solver = Steffensen::new(&f, &dom);
+            assert!(f.is_root(&solve(&f, &dom, solver, x, 25, eps).unwrap(), eps));
+        }
+    }
 }

@@ -708,4 +708,20 @@ mod tests {
             Err(SolveError::Solver(TrustRegionError::NoProgress)) | Err(SolveError::Termination)
         ));
     }
+
+    #[test]
+    fn infinite_solutions() {
+        let f = InfiniteSolutions::default();
+        let dom = f.domain();
+        let eps = convert(1e-12);
+
+        for x in f.initials() {
+            let solver = TrustRegion::new(&f, &dom);
+            assert!(match solve(&f, &dom, solver, x, 25, eps) {
+                Ok(root) => f.is_root(&root, eps),
+                Err(SolveError::Solver(TrustRegionError::NoValidStep)) => true,
+                Err(error) => panic!("{:?}", error),
+            });
+        }
+    }
 }
