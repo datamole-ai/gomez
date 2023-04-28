@@ -1,6 +1,27 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2023-04-28
+
+[48bbf11](48bbf11afd3237d0984755c74968920ce52c0cd9)...[dfd5399](dfd5399806e919598c452bf233153bcaea983ac2)
+
+### Bug Fixes
+
+- Initialize residuals when initializing simplex in Nelder-Mead ([5b758a2](../../commit/5b758a2979eb8fd9e52a067b5d9ea92ce985b0bf))
+
+### Features
+
+- Introduce a new, hidden setting for TrustRegion ([dfd5399](../../commit/dfd5399806e919598c452bf233153bcaea983ac2))
+
+### Miscellaneous Tasks
+
+- Fix clippy warnings and other stylistic changes ([141305a](../../commit/141305a5de990f04c07a0f764e7b34a902b4d347))
+
+### Testing
+
+- Make tests to actually check if the successful output is a root ([33ae76a](../../commit/33ae76a7fb741a88f21e8b9c35d87283ef351a9b))
+- Add a test for system that has infinite solutions ([266a1b1](../../commit/266a1b17894002f48958df19eef5c94633d02e2d))
+
 ## [0.3.1] - 2022-05-08
 
 ### Features
