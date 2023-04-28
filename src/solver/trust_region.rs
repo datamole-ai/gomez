@@ -81,6 +81,25 @@ pub struct TrustRegionOptions<F: Problem> {
     /// Determines whether steps that increase the error can be accepted.
     /// Default: `true`.
     allow_ascent: bool,
+    #[getset(skip)]
+    prefer_greater_magnitude_in_cauchy: bool,
+}
+
+impl<F: Problem> TrustRegionOptions<F> {
+    // XXX: This is a hack. Setting this to true influences the solver in a way
+    // that is not based on mathematical theory. However, when used, this makes
+    // the solver to work substantially better for specific cases. I can't
+    // explain why, that's why setting is hidden. If I manage to find the
+    // explanation or the real reason why this helps, I will either remove this,
+    // offer a proper setting or adjust the solver implementation accordingly.
+    #[doc(hidden)]
+    pub fn set_prefer_greater_magnitude_in_cauchy(
+        &mut self,
+        prefer_greater_magnitude_in_cauchy: bool,
+    ) -> &mut Self {
+        self.prefer_greater_magnitude_in_cauchy = prefer_greater_magnitude_in_cauchy;
+        self
+    }
 }
 
 impl<F: Problem> Default for TrustRegionOptions<F> {
@@ -95,6 +114,7 @@ impl<F: Problem> Default for TrustRegionOptions<F> {
             accept_thresh: convert(0.0001),
             rejections_thresh: 10,
             allow_ascent: true,
+            prefer_greater_magnitude_in_cauchy: false,
         }
     }
 }
@@ -219,6 +239,7 @@ where
             accept_thresh,
             rejections_thresh,
             allow_ascent,
+            prefer_greater_magnitude_in_cauchy,
             ..
         } = self.options;
 
@@ -244,7 +265,7 @@ where
         let scale_inv2: &mut OVector<F::Scalar, F::Dim>;
         let cauchy_scaled: &mut OVector<F::Scalar, F::Dim>;
 
-        #[derive(Clone, Copy, PartialEq)]
+        #[derive(Debug, Clone, Copy, PartialEq)]
         enum StepType {
             FullNewton,
             ScaledNewton,
@@ -360,7 +381,23 @@ where
                 // Compute tau = -(grad F)^T g / || F'(x) g ||^2.
                 jac.mul_to(cauchy, temp);
                 let jac_g_norm2 = temp.norm_squared();
-                let grad_neg_g = grad_neg.dot(cauchy);
+                let grad_neg_g = if !prefer_greater_magnitude_in_cauchy {
+                    grad_neg.dot(cauchy)
+                } else {
+                    // XXX: By accident/misunderstanding, I discovered that
+                    // using tau = g^T g / || F'(x) g ||^2 helps in some
+                    // specific cases significantly. This is however not based
+                    // on the theory. Very likely it just happens to cause some
+                    // side-effect that is the actual reason why it works. This
+                    // should be eventually explained or replaced by a proper
+                    // solution.
+                    //
+                    // Note that by using g = -D^(-2) grad F instead of -grad F,
+                    // the numerator amplifies the effect of variables that have
+                    // greater magnitude (the inverse of scaling matrix), hence
+                    // the name of the setting.
+                    cauchy.dot(cauchy)
+                };
                 let tau = grad_neg_g / jac_g_norm2;
 
                 // Scale the steepest descent to the Cauchy point.
@@ -398,9 +435,9 @@ where
                     //     b = cauchy^T D^2 (newton - cauchy)
                     //     c = || D cauchy ||^2 - delta^2
                     //
-                    // This polynomial has one negative root and one root in [0,
-                    // 1]. We seek for the latter. Due to our choice of the
-                    // polynomial, we have
+                    // This polynomial has one negative root and one root in
+                    // range (0, 1). We seek for the latter. Due to our choice
+                    // of the polynomial, we have
                     //
                     //     roots = (-b +- sqrt(b^2 - ac)) / a
                     //
@@ -455,9 +492,10 @@ where
                     //
                     //     (B + lambda I) p = - grad F(x)
                     //
-                    // such that p is the solution to min m(p) with || D p || <=
-                    // delta.
-
+                    // such that p is the solution to
+                    //
+                    //     min 1/2 || F'(x) p + F(x) ||^2 s.t. || D p || <= delta.
+                    //
                     // Determine lambda for Levenberg-Marquardt. A common choice
                     // proven to lead to quadratic convergence is
                     //
