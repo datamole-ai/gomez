@@ -233,7 +233,8 @@ where
 
             // It is important to return early on error before the point is
             // added to the simplex.
-            let mut error_best = f.apply(x)?;
+            let mut error_best = f.apply_eval(x, fx)?;
+            fx_best.copy_from(fx);
             errors.push(error_best);
             simplex.push(x.clone_owned());
 
@@ -241,7 +242,7 @@ where
                 let mut xi = x.clone_owned();
                 xi[j] = dom.vars()[j].clamp(xi[j] + scale[j]);
 
-                let error = match f.apply(&xi) {
+                let error = match f.apply_eval(&xi, fx) {
                     Ok(error) => error,
                     // Do not fail when invalid value is encountered during
                     // building the simplex. Instead, treat it as infinity so
