@@ -2,19 +2,19 @@ name: Gomez publish
 
 on:
   push:
-    tags: v*
+    tags:
+      - v*
 
 jobs:
-  publish:
-    name: Publish
+  rust-publish:
+    name: Rust publish
     runs-on: ubuntu-latest
-    env:
-      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+    container: rust:latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: cargo publish --token $CRATES_IO_TOKEN
+      - uses: actions/checkout@v3
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Publish package
+        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
