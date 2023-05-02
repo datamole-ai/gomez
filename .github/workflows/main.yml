@@ -4,90 +4,114 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
-  lint-commits:
+  commits-lint:
     name: Conventional commits
     runs-on: ubuntu-latest
+    env:
+      COMMITLINT_CONFIG: .commitlintrc.json
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: wagoid/commitlint-github-action@v4
-        with:
-          configFile: .commitlintrc.json
 
-  format-rust:
-    name: Format
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt
-      - run: cargo fmt --all -- --check
+      # Only the latest commit only by default
+      - name: Get commit range
+        run: |
+          echo "COMMIT_RANGE_FROM=${{ github.sha }}^" >> $GITHUB_ENV
+          echo "COMMIT_RANGE_TO=${{ github.sha }}" >> $GITHUB_ENV
 
-  lint-rust:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: clippy
-      - run: cargo clippy -- -D warnings
-      - run: cargo clippy --tests -- -D warnings
+      - name: Update commit range
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "COMMIT_RANGE_FROM=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+          echo "COMMIT_RANGE_TO=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
 
-  test-rust-stable:
-    name: Tests on stable
+      - name: Update commit range
+        if: github.event_name == 'push' && !github.event.forced
+        run: |
+          echo "COMMIT_RANGE_FROM=${{ github.event.before }}" >> $GITHUB_ENV
+
+      - name: Lint conventional commits
+        run: |
+          npm install -g @commitlint/cli @commitlint/config-conventional
+          echo "Linting range ${{ env.COMMIT_RANGE_FROM }}..${{ env.COMMIT_RANGE_TO }}"
+          commitlint --config ${{ env.COMMITLINT_CONFIG }} --from ${{ env.COMMIT_RANGE_FROM }} --to ${{ env.COMMIT_RANGE_TO }}
+
+  rust-format:
+    name: Rust format
     runs-on: ubuntu-latest
+    container: rust:latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v3
+
+      - name: Check Rust code formatting
+        run: |
+          rustup component add rustfmt
+          cargo fmt --all -- --check
+
+  rust-lint:
+    name: Rust lint
+    runs-on: ubuntu-latest
+    container: rust:latest
+    steps:
+      - uses: actions/checkout@v3
+
       - name: Install GSL
-        run: sudo apt update && sudo apt-get install clang libgsl-dev
-      - run: cargo build --verbose
-      - run: cargo test
-      - run: cargo build --verbose --release
-      - run: cargo test --release
+        run: apt-get update && apt-get install -y clang libgsl-dev
 
-  test-rust-nightly:
-    name: Tests on nightly
+      - name: Lint Rust code
+        run: |
+          rustup component add clippy
+          cargo clippy -- -D warnings
+          cargo clippy --tests -- -D warnings
+
+  rust-test:
+    name: Rust test
     runs-on: ubuntu-latest
-    continue-on-error: true
+    container: ${{ matrix.container }}
+    continue-on-error: ${{ matrix.rust-toolchain == 'nightly' }}
+    needs: [rust-format, rust-lint]
+    strategy:
+      matrix:
+        rust-toolchain:
+          - stable
+          - nightly
+        profile:
+          - dev
+          - release
+        include:
+          - rust-toolchain: stable
+            container: rust:latest
+          - rust-toolchain: nightly
+            container: rustlang/rust:nightly
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-      - name: Install GSL
-        run: sudo apt update && sudo apt-get install clang libgsl-dev
-      - run: cargo build --verbose
-      - run: cargo test
+      - uses: actions/checkout@v3
 
-  check-docs:
-    name: Documentation
+      - name: Install GSL
+        run: apt-get update && apt-get install -y clang libgsl-dev
+
+      - name: Log environment details
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Compile
+        run: cargo build --profile ${{ matrix.profile }} --verbose
+
+      - name: Run tests
+        run: cargo test --profile ${{ matrix.profile }}
+
+  rust-check-docs:
+    name: Rust docs check
     runs-on: ubuntu-latest
+    container: rust:latest
+    needs: [rust-format, rust-lint]
     env:
       RUSTDOCFLAGS: -D warnings
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: cargo doc --no-deps --document-private-items
+      - uses: actions/checkout@v3
+
+      - name: Check Rust docs
+        run: cargo doc --no-deps --document-private-items --workspace
