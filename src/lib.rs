@@ -261,10 +261,7 @@ pub use nalgebra;
 /// Gomez prelude.
 pub mod prelude {
     pub use crate::{
-        core::{
-            Domain, Function, Optimizer, Problem, ProblemError, Solver, System, Variable,
-            VariableBuilder,
-        },
+        core::{Domain, Problem, ProblemError, Solver, System, Variable, VariableBuilder},
         var,
     };
 }

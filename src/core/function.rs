@@ -18,6 +18,7 @@ use super::{
 /// two required methods: [`apply`](Function::apply) and [`dim`](Problem::dim).
 ///
 /// ```rust
+/// use gomez::core::Function;
 /// use gomez::nalgebra as na;
 /// use gomez::prelude::*;
 /// use na::{Dim, DimName, IsContiguous};
