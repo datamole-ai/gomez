@@ -40,8 +40,10 @@ use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Problem, ProblemError, Solver, System, VectorDomainExt},
-    derivatives::{Jacobian, JacobianError, EPSILON_SQRT},
+    core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System, VectorDomainExt},
+    derivatives::{
+        Gradient, GradientError, Hessian, HessianError, Jacobian, JacobianError, EPSILON_SQRT,
+    },
 };
 
 /// Specification for initial value of trust region size.
@@ -130,6 +132,8 @@ where
     mu: F::Scalar,
     scale: OVector<F::Scalar, F::Dim>,
     jac: Jacobian<F>,
+    grad: Gradient<F>,
+    hes: Hessian<F>,
     q_tr_fx_neg: OVector<F::Scalar, F::Dim>,
     newton: OVector<F::Scalar, F::Dim>,
     grad_neg: OVector<F::Scalar, F::Dim>,
@@ -166,6 +170,8 @@ where
             mu: convert(0.5),
             scale: OVector::from_iterator_generic(f.dim(), U1::name(), scale_iter),
             jac: Jacobian::zeros(f),
+            grad: Gradient::zeros(f),
+            hes: Hessian::zeros(f),
             q_tr_fx_neg: OVector::zeros_generic(f.dim(), U1::name()),
             newton: OVector::zeros_generic(f.dim(), U1::name()),
             grad_neg: OVector::zeros_generic(f.dim(), U1::name()),
@@ -199,6 +205,12 @@ pub enum TrustRegionError {
     /// Error that occurred when computing the Jacobian matrix.
     #[error("{0}")]
     Jacobian(#[from] JacobianError),
+    /// Error that occurred when computing the gradient vector.
+    #[error("{0}")]
+    Gradient(#[from] GradientError),
+    /// Error that occurred when computing the Hessian matrix.
+    #[error("{0}")]
+    Hessian(#[from] HessianError),
     /// Could not take any valid step.
     #[error("neither newton nor steepest descent step can be taken from the point")]
     NoValidStep,
@@ -695,6 +707,366 @@ where
     }
 }
 
+impl<F: Function> Optimizer<F> for TrustRegion<F>
+where
+    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
+    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
+    F::Dim: DimMin<F::Dim, Output = F::Dim>,
+    DefaultAllocator: Allocator<F::Scalar, <F::Dim as DimMin<F::Dim>>::Output>,
+    DefaultAllocator: Reallocator<F::Scalar, F::Dim, F::Dim, F::Dim, F::Dim>,
+{
+    const NAME: &'static str = "Trust-region";
+
+    type Error = TrustRegionError;
+
+    fn next<Sx>(
+        &mut self,
+        f: &F,
+        dom: &Domain<<F>::Scalar>,
+        x: &mut Vector<<F>::Scalar, <F>::Dim, Sx>,
+    ) -> Result<<F>::Scalar, Self::Error>
+    where
+        Sx: StorageMut<<F>::Scalar, <F>::Dim> + IsContiguous,
+    {
+        let TrustRegionOptions {
+            delta_min,
+            delta_max,
+            shrink_thresh,
+            expand_thresh,
+            accept_thresh,
+            rejections_thresh,
+            allow_ascent,
+            ..
+        } = self.options;
+
+        let Self {
+            delta,
+            scale,
+            hes,
+            grad,
+            q_tr_fx_neg: q_tr_grad_neg,
+            newton,
+            grad_neg,
+            cauchy,
+            p,
+            temp,
+            rejections_cnt,
+            ..
+        } = self;
+
+        #[allow(clippy::needless_late_init)]
+        let scaled_newton: &mut OVector<F::Scalar, F::Dim>;
+        let scale_inv2_grad: &mut OVector<F::Scalar, F::Dim>;
+        let cauchy_scaled: &mut OVector<F::Scalar, F::Dim>;
+
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        enum StepType {
+            FullNewton,
+            ScaledNewton,
+            ScaledCauchy,
+            Dogleg,
+        }
+
+        // Compute f(x), grad f(x) and H(x).
+        let mut fx = f.apply(x)?;
+        grad.compute(f, x, scale, fx)?;
+        hes.compute(f, x, scale, fx)?;
+
+        let estimate_delta = *delta == F::Scalar::zero();
+        if estimate_delta {
+            *delta = grad.norm() * convert(0.1);
+        }
+
+        // Perform QR decomposition of H(x).
+        let (q, r) = hes.clone_owned().qr().unpack();
+
+        // Compute -Q^T grad f(x).
+        grad_neg.copy_from(grad);
+        grad_neg.neg_mut();
+        q.tr_mul_to(grad_neg, q_tr_grad_neg);
+
+        // Find the Newton step by solving the system R newton = -Q^T grad f(x).
+        newton.copy_from(q_tr_grad_neg);
+        let is_newton_valid = r.solve_upper_triangular_mut(newton);
+
+        if !is_newton_valid {
+            // TODO: Moore-Penrose pseudoinverse?
+            debug!(
+                "Newton step is invalid for ill-defined Hessian (zero columns: {:?})",
+                hes.column_iter()
+                    .enumerate()
+                    .filter(|(_, col)| col.norm() == F::Scalar::zero())
+                    .map(|(i, _)| i)
+                    .collect::<Vec<_>>()
+            );
+        }
+
+        // Compute the norm of scaled Newton step (use temp fo storage).
+        scaled_newton = temp;
+        scaled_newton.copy_from(newton);
+        scaled_newton.component_mul_assign(scale);
+        let newton_scaled_norm = scaled_newton.norm();
+
+        if is_newton_valid && newton_scaled_norm <= *delta {
+            // Scaled Newton step is inside the trust region. We can safely take it.
+            p.copy_from(newton);
+            debug!("take full Newton: {:?}", p.as_slice());
+            StepType::FullNewton
+        } else {
+            // Newton step is outside the trust region. We need to involve the
+            // gradient.
+
+            let grad_norm = grad_neg.norm();
+
+            if grad_norm == F::Scalar::zero() {
+                // Gradient is zero, it is useless to compute the dogleg step.
+                // Instead, we take the Newton direction to the trust region
+                // boundary.
+                if is_newton_valid {
+                    p.copy_from(newton);
+                    *p *= *delta / newton_scaled_norm;
+                    debug!(
+                        "take scaled Newton to trust-region boundary: {:?}",
+                        p.as_slice()
+                    );
+                    StepType::ScaledNewton
+                } else {
+                    return Err(TrustRegionError::NoValidStep);
+                }
+            } else {
+                // Compute || D^-1 grad || (use p for storage).
+                scale_inv2_grad = p;
+                scale_inv2_grad.copy_from(scale);
+                scale_inv2_grad.apply(|s| *s = F::Scalar::one() / *s);
+                scale_inv2_grad.component_mul_assign(grad_neg);
+                let scale_inv_grad_norm = scale_inv2_grad.norm();
+
+                // Compute D^(-2) grad.
+                scale_inv2_grad.copy_from(scale);
+                scale_inv2_grad.apply(|s| *s = F::Scalar::one() / (*s * *s));
+                scale_inv2_grad.component_mul_assign(grad_neg);
+                scale_inv2_grad.neg_mut();
+
+                // Compute g = -delta / || D^-1 grad|| * -D^(-2) grad, the
+                // steepest descent direction in
+                // scaled space (use cauchy for storage).
+                cauchy.copy_from(scale_inv2_grad);
+                *cauchy *= -*delta / scale_inv_grad_norm;
+
+                // Calculate grad^T D^-2 H D^-2 grad.
+                hes.mul_to(scale_inv2_grad, temp);
+                let quadratic_form = scale_inv2_grad.dot(temp);
+
+                let tau = if quadratic_form <= F::Scalar::zero() {
+                    F::Scalar::one()
+                } else {
+                    // tau = min(|| D^-1 grad|| / delta * grad^T D^-2 H D^-2 grad, 1).
+                    (scale_inv_grad_norm.powi(3) / (*delta * quadratic_form)).min(F::Scalar::one())
+                };
+
+                let p = scale_inv2_grad;
+
+                // Scale the steepest descent to the Cauchy point.
+                *cauchy *= tau;
+
+                // Compute ||D cauchy||.
+                cauchy_scaled = temp;
+                cauchy_scaled.copy_from(scale);
+                cauchy_scaled.component_mul_assign(cauchy);
+                let cauchy_scaled_norm = cauchy_scaled.norm();
+
+                if cauchy_scaled_norm >= *delta {
+                    // Cauchy point is outside the trust region. We take the
+                    // steepest gradient descent to the trust region boundary.
+                    p.copy_from(cauchy);
+                    *p *= *delta / cauchy_scaled_norm;
+                    debug!(
+                        "take scaled Cauchy to trust region-boundary: {:?}",
+                        p.as_slice()
+                    );
+                    StepType::ScaledCauchy
+                } else if is_newton_valid {
+                    let temp = cauchy_scaled;
+
+                    // The trust region boundary is crossed by the dogleg path
+                    // p(alpha) = cauchy + alpha (newton - cauchy). We need to
+                    // find alpha such that || D p || = delta. It is found by
+                    // solving the following quadratic equation:
+                    //
+                    //     || D p ||^2 - delta^2 = 0
+                    //
+                    // For equation a alpha^2 + 2b alpha + c = 0, we get:
+                    //
+                    //     a = || D (newton - cauchy) ||^2
+                    //     b = cauchy^T D^2 (newton - cauchy)
+                    //     c = || D cauchy ||^2 - delta^2
+                    //
+                    // This polynomial has one negative root and one root in
+                    // range (0, 1). We seek for the latter. Due to our choice
+                    // of the polynomial, we have
+                    //
+                    //     roots = (-b +- sqrt(b^2 - ac)) / a
+                    //
+                    // We can observe that, due to || D cauchy || < delta that
+                    // we checked above, c is always negative. Further, a is
+                    // always nonnegative. Therefore sqrt(b^2 - ac) >= b. That
+                    // means that for whatever b, the root when using minus sign
+                    // is negative, which is not what we seek for. Thus we can
+                    // safely compute only one root.
+                    //
+                    // For slightly better numerical accuracy, we will avoid
+                    // some subtractions (possible catastrophic cancellation) by
+                    // computing -c and using Muller's formula for b > 0.
+
+                    // Compute D (newton - cauchy) (use p for storage).
+                    let diff_scaled = p;
+                    newton.sub_to(cauchy, diff_scaled);
+                    diff_scaled.component_mul_assign(scale);
+
+                    // Compute a, b and -c.
+                    let a = diff_scaled.norm_squared();
+
+                    temp.copy_from(diff_scaled);
+                    temp.component_mul_assign(scale);
+                    let b = cauchy.dot(temp);
+
+                    let c_neg = *delta * *delta - cauchy_scaled_norm * cauchy_scaled_norm;
+
+                    #[allow(clippy::suspicious_operation_groupings)]
+                    let d = (b * b + a * c_neg).sqrt();
+                    let alpha = if b <= F::Scalar::zero() {
+                        (-b + d) / a
+                    } else {
+                        c_neg / (b + d)
+                    };
+                    let p = diff_scaled;
+
+                    // Finally, compute the dogleg step p = cauchy + alpha
+                    // (newton - cauchy).
+                    newton.sub_to(cauchy, p);
+                    *p *= alpha;
+                    *p += &*cauchy;
+                    debug!("take dogleg (factor = {}): {:?}", alpha, p.as_slice());
+                    StepType::Dogleg
+                } else {
+                    return Err(TrustRegionError::NoValidStep);
+                }
+            }
+        };
+
+        // Vector for Newton step is no longed used, so we reuse its allocations
+        // for another purpose.
+        let x_trial = newton;
+
+        // Get candidate x' for the next iterate.
+        x.add_to(p, x_trial);
+
+        let not_feasible = x_trial.project(dom);
+
+        if not_feasible {
+            debug!("new iterate is not feasible, performing the projection");
+
+            // Compute the step after projection.
+            x_trial.sub_to(x, p);
+        }
+
+        // Compute f(x').
+        let (fx_trial, is_trial_valid) = match f.apply(x_trial) {
+            Ok(fx_trial) => (fx_trial, true),
+            Err(_) => (F::Scalar::zero(), false),
+        };
+
+        let gain_ratio = if is_trial_valid {
+            // Compute the gain ratio.
+            hes.mul_to(p, temp);
+            let p_hes_p = p.dot(temp);
+            let grad_p = grad.dot(p);
+            let predicted = -(grad_p + p_hes_p * convert(0.5));
+
+            let deny = if allow_ascent {
+                // If ascent is allowed, then check only for zero, which would
+                // make the gain ratio calculation ill-defined.
+                predicted == F::Scalar::zero()
+            } else {
+                // If ascent is not allowed, test positivity of the predicted
+                // gain. Note that even if the actual reduction was positive,
+                // the step would be rejected anyway because the gain ratio
+                // would be negative.
+                predicted <= F::Scalar::zero()
+            };
+
+            if deny {
+                if allow_ascent {
+                    debug!("predicted gain = 0");
+                } else {
+                    debug!("predicted gain <= 0");
+                }
+                F::Scalar::zero()
+            } else {
+                let actual = fx - fx_trial;
+                let gain_ratio = actual / predicted;
+                debug!("gain ratio = {} / {} = {}", actual, predicted, gain_ratio);
+
+                gain_ratio
+            }
+        } else {
+            debug!("trial step is invalid, gain ratio = 0");
+            F::Scalar::zero()
+        };
+
+        // Decide if the step is accepted or not.
+        if gain_ratio > accept_thresh {
+            // Accept the trial step.
+            x.copy_from(x_trial);
+            fx = fx_trial;
+            debug!(
+                "step accepted, fx = {}, x = {:?}",
+                fx_trial,
+                x_trial.as_slice()
+            );
+
+            *rejections_cnt = 0;
+        } else {
+            debug!("step rejected, threshold for accepting = {}", accept_thresh);
+            *rejections_cnt += 1;
+
+            if *rejections_cnt == rejections_thresh {
+                debug!(
+                    "solving reached the rejections count limit ({})",
+                    rejections_thresh
+                );
+                return Err(TrustRegionError::NoProgress);
+            }
+        }
+
+        let p_scaled = p;
+        p_scaled.component_mul_assign(scale);
+        let p_scaled_norm = p_scaled.norm();
+
+        // Potentially update the size of the trust region.
+        let delta_old = *delta;
+        if gain_ratio < shrink_thresh {
+            *delta = (delta_old * convert(0.25))
+                .min(p_scaled_norm * convert(0.25))
+                .max(delta_min);
+            debug!(
+                "shrink delta from {} to {} (|| D p || = {})",
+                delta_old, *delta, p_scaled_norm
+            );
+        } else if gain_ratio > expand_thresh {
+            *delta = (delta_old * convert(2.0))
+                .max(p_scaled_norm * convert(3.0))
+                .min(delta_max);
+            debug!(
+                "expand delta from {} to {} (|| D p || = {})",
+                delta_old, *delta, p_scaled_norm
+            );
+        }
+
+        Ok(fx)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -760,6 +1132,34 @@ mod tests {
                 Err(SolveError::Solver(TrustRegionError::NoValidStep)) => true,
                 Err(error) => panic!("{:?}", error),
             });
+        }
+    }
+
+    #[test]
+    fn sphere_optimization() {
+        let n = 2;
+
+        let f = Sphere::new(n);
+        let dom = f.domain();
+        let eps = convert(1e-12);
+
+        for x in f.initials() {
+            let optimizer = TrustRegion::new(&f, &dom);
+            optimize(&f, &dom, optimizer, x, convert(0.0), 25, eps).unwrap();
+        }
+    }
+
+    #[test]
+    fn rosenbrock_optimization() {
+        let n = 2;
+
+        let f = ExtendedRosenbrock::new(n);
+        let dom = f.domain();
+        let eps = convert(1e-3);
+
+        for x in f.initials() {
+            let optimizer = TrustRegion::new(&f, &dom);
+            optimize(&f, &dom, optimizer, x, convert(0.0), 250, eps).unwrap();
         }
     }
 }

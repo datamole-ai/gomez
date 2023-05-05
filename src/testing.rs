@@ -29,7 +29,7 @@ use nalgebra::{
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Problem, ProblemError, Solver, System},
+    core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System},
     var,
 };
 
@@ -628,6 +628,38 @@ where
         solver.next(f, dom, &mut x, &mut fx)?;
 
         if fx.norm() <= tolerance {
+            return Ok(x);
+        }
+
+        if iter == max_iters {
+            return Err(SolveError::Termination);
+        } else {
+            iter += 1;
+        }
+    }
+}
+
+/// A simple solver driver that can be used in tests.
+pub fn optimize<F: Function, O: Optimizer<F>>(
+    f: &F,
+    dom: &Domain<F::Scalar>,
+    mut optimizer: O,
+    mut x: OVector<F::Scalar, F::Dim>,
+    min: F::Scalar,
+    max_iters: usize,
+    tolerance: F::Scalar,
+) -> Result<OVector<F::Scalar, F::Dim>, SolveError<O::Error>>
+where
+    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
+    O::Error: StdError,
+{
+    let mut iter = 0;
+
+    loop {
+        let fx = optimizer.next(f, dom, &mut x)?;
+
+        if fx <= min + tolerance {
+            // Converged.
             return Ok(x);
         }
 
