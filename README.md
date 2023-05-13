@@ -10,7 +10,7 @@ This library provides a variety of solvers of nonlinear equation systems with
 variables are supported first-class, which is useful for engineering
 applications. All solvers implement the same interface which is designed to give
 full control over the process and allows to combine different components to
-achieve the desired solution. The implemented methods are historically-proven
+achieve the desired solution. The implemented methods are historically proven
 numerical methods or global optimization algorithms.
 
 The convergence of the numerical methods is tested on several problems and the
@@ -21,11 +21,13 @@ implementation is benchmarked against with
 
 * Trust region -- Recommended method to be used as a default and it will just
   work in most of the cases.
+* LIPO -- A global optimization algorithm useful for initial guesses search in
+  combination with a numerical solver.
 * Cuckoo search -- A global optimization algorithm useful for initial guesses
   search in combination with a numerical solver.
 * Steffensen -- Fast and lightweight method for one-dimensional systems.
 * Nelder-Mead -- Not generally recommended, but may be useful for
-  low-dimensionality problems with ill-defined Jacobian matrix.
+  low-dimensionality problems with an ill-defined Jacobian matrix.
 
 ## Roadmap
 
@@ -33,7 +35,7 @@ Listed *not* in order of priority.
 
 * [Homotopy continuation
   method](http://homepages.math.uic.edu/~jan/srvart/node4.html) to compare the
-  performance with Trust region method.
+  performance with the Trust region method.
 * Conjugate gradient method
 * Experimentation with various global optimization techniques for initial
   guesses search

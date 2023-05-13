@@ -13,7 +13,7 @@ edition = "2021"
 
 [dependencies]
 nalgebra = "0.31"
-rand = "0.8"
+rand = { version = "0.8", features = ["small_rng"] }
 rand_distr = "0.4"
 approx = "0.5"
 num-traits = "0.2"
