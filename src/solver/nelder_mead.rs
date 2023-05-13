@@ -122,7 +122,6 @@ impl<F: Problem> NelderMeadOptions<F> {
 pub struct NelderMead<F: Problem>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
     options: NelderMeadOptions<F>,
     fx: OVector<F::Scalar, F::Dim>,
@@ -140,7 +139,6 @@ where
 impl<F: Problem> NelderMead<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
     /// Initializes Nelder-Mead solver with default options.
     pub fn new(f: &F, dom: &Domain<F::Scalar>) -> Self {
@@ -191,7 +189,6 @@ pub enum NelderMeadError {
 impl<F: Function> NelderMead<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
     fn next_inner<Sx>(
         &mut self,
@@ -476,7 +473,6 @@ where
 impl<F: Function> Optimizer<F> for NelderMead<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
     const NAME: &'static str = "Nelder-Mead";
 
@@ -498,7 +494,6 @@ where
 impl<F: System + Function> Solver<F> for NelderMead<F>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
     const NAME: &'static str = "Nelder-Mead";
 
