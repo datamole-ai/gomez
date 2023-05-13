@@ -13,6 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Install GSL
+        run: apt-get update && apt-get install -y clang libgsl-dev
+
       - name: Run tests
         run: cargo test
 

@@ -1,6 +1,16 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2023-05-13
+
+[3c523d3](3c523d36da132643bda75ec7ac663782a1721b86)...[ebc07ed](ebc07ed09b39c4a0103b01d5e74920632453c1c7)
+
+### Features
+
+- Remove Function and Optimizer from the prelude ([dd6524a](../../commit/dd6524a3e18f6a4a1539134931e7d1f845c16d5e))
+- Adapt the trust region algorithm for function optimization ([96fe08f](../../commit/96fe08f5c85b8535d6514e2ab3095820c1ca4686))
+- Implement LIPO solver ([ebc07ed](../../commit/ebc07ed09b39c4a0103b01d5e74920632453c1c7))
+
 ## [0.3.2] - 2023-04-28
 
 [48bbf11](48bbf11afd3237d0984755c74968920ce52c0cd9)...[dfd5399](dfd5399806e919598c452bf233153bcaea983ac2)
