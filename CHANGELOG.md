@@ -1,6 +1,14 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2023-05-15
+
+[4028405](40284050177ba91fdea9683492cace42e13d8816)...[22445f5](22445f5b5db537edfa52b9839621a422fe32d78b)
+
+### Bug Fixes
+
+- Fix Nelder-Mead for univariate optimization ([22445f5](../../commit/22445f5b5db537edfa52b9839621a422fe32d78b))
+
 ## [0.4.0] - 2023-05-13
 
 [3c523d3](3c523d36da132643bda75ec7ac663782a1721b86)...[ebc07ed](ebc07ed09b39c4a0103b01d5e74920632453c1c7)
