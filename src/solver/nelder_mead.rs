@@ -16,6 +16,10 @@
 //!
 //! \[3\] [Less is more: Simplified Nelder-Mead method for large unconstrained
 //! optimization](https://api.semanticscholar.org/CorpusID:59403095)
+//!
+//! \[4\] [Gilding the Lily: A Variant of the Nelder-Mead Algorithm Based on
+//! Golden-Section
+//! Search](https://link.springer.com/article/10.1023/A:1014842520519)
 
 use getset::{CopyGetters, Setters};
 use log::debug;
@@ -45,6 +49,9 @@ pub enum CoefficientsFamily {
     /// dimension into account to avoid diminishing of expansion and contraction
     /// steps in higher dimensions.
     Balanced,
+    /// The coefficients are chosen such that the algorithm becomes a
+    /// golden-section search.
+    GoldenSection,
     /// The coefficients are left unchanged so it is the responsibility of the
     /// user to set them through [`NelderMeadOptions`].
     Fixed,
@@ -72,7 +79,7 @@ pub struct NelderMeadOptions<F: Problem> {
 impl<F: Problem> Default for NelderMeadOptions<F> {
     fn default() -> Self {
         Self {
-            family: CoefficientsFamily::Balanced,
+            family: CoefficientsFamily::Standard,
             reflection_coeff: convert(-1.0),
             expansion_coeff: convert(-2.0),
             outer_contraction_coeff: convert(-0.5),
@@ -110,6 +117,14 @@ impl<F: Problem> NelderMeadOptions<F> {
                 *outer_contraction_coeff = -(F::Scalar::one() - n_inv);
                 *inner_contraction_coeff = -*outer_contraction_coeff;
                 *shrink_coeff = F::Scalar::one() - n_inv;
+            }
+            CoefficientsFamily::GoldenSection => {
+                let alpha = 1.0 / (0.5 * (5f64.sqrt() + 1.0));
+                *reflection_coeff = convert(-1.0);
+                *expansion_coeff = convert(-1.0 / alpha);
+                *outer_contraction_coeff = convert(-alpha);
+                *inner_contraction_coeff = convert(alpha.powi(2));
+                *shrink_coeff = convert(-alpha.powi(2));
             }
             CoefficientsFamily::Fixed => {
                 // Leave unchanged.
@@ -251,6 +266,7 @@ where
                     Err(error) => {
                         // Clear the simplex so the solver is not in invalid
                         // state.
+                        debug!("encountered unexpected error during simplex initialization");
                         simplex.clear();
                         errors.clear();
                         return Err(error.into());
@@ -268,8 +284,13 @@ where
 
             let inf_error_count = errors.iter().filter(|e| **e == inf).count();
 
-            if inf_error_count >= n / 2 {
+            if inf_error_count >= simplex.len() / 2 {
                 // The simplex is too degenerate.
+                debug!(
+                    "{} out of {} points in simplex have invalid value, returning error",
+                    inf_error_count,
+                    simplex.len()
+                );
                 simplex.clear();
                 errors.clear();
                 return Err(NelderMeadError::Problem(ProblemError::InvalidValue));
@@ -291,6 +312,8 @@ where
             .map(|i| &simplex[sort_perm[i]])
             .for_each(|xi| *centroid += xi);
         *centroid /= convert(n as f64);
+
+        debug!("centroid of simplex: {:?}", centroid.as_slice());
 
         #[derive(Debug, Clone, Copy, PartialEq)]
         enum Transformation {
@@ -448,12 +471,16 @@ where
         x.copy_from(&simplex[sort_perm[0]]);
         // fx corresponding to x is stored in `self.fx_best`.
 
-        if transformation == Transformation::Shrinkage || not_feasible {
+        if transformation == Transformation::Shrinkage
+            || transformation == Transformation::InnerContraction
+            || not_feasible
+        {
             // Check whether the simplex collapsed or not. It can happen only
-            // when shrinkage is performed or a new point was projected into the
-            // feasible domain, because otherwise an error reduction was
-            // achieved. This criterion is taken from "Less is more: Simplified
-            // Nelder-Mead method for large unconstrained optimization".
+            // when shrinkage or, when n = 1 inner contraction, is performed or
+            // a new point was projected into the feasible domain, because
+            // otherwise an error reduction was achieved. This criterion is
+            // taken from "Less is more: Simplified Nelder-Mead method for large
+            // unconstrained optimization".
             let eps: F::Scalar = convert(EPSILON_SQRT);
 
             let worst = errors[sort_perm[n]];
@@ -462,6 +489,7 @@ where
             let denom = worst + best + eps;
 
             if numer / denom <= eps {
+                debug!("simplex collapsed: {} / {} <= {}", numer, denom, eps);
                 return Err(NelderMeadError::SimplexCollapsed);
             }
         }
@@ -603,5 +631,17 @@ mod tests {
             solve(&f, &dom, solver, x, 5, eps),
             Err(SolveError::Solver(NelderMeadError::SimplexCollapsed))
         ));
+    }
+
+    #[test]
+    fn univariate_optimization() {
+        let f = Sphere::new(1);
+        let dom = f.domain();
+        let eps = convert(1e-3);
+
+        for x in f.initials() {
+            let optimizer = NelderMead::new(&f, &dom);
+            optimize(&f, &dom, optimizer, x, convert(0.0), 10, eps).unwrap();
+        }
     }
 }
