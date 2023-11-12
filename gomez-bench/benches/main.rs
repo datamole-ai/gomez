@@ -184,7 +184,7 @@ where
             let mut fx = x.clone_owned();
             let mut iter = 0;
             loop {
-                if solver.next(&f, &dom, &mut x, &mut fx).is_err() {
+                if solver.solve_next(&f, &dom, &mut x, &mut fx).is_err() {
                     panic!("solver error");
                 }
 
@@ -290,7 +290,7 @@ impl<F: TestSystem<Scalar = f64>> Solver<F> for GslSolverWrapper<GslFunctionWrap
 
     type Error = String;
 
-    fn next<Sx, Sfx>(
+    fn solve_next<Sx, Sfx>(
         &mut self,
         _f: &F,
         _dom: &Domain<F::Scalar>,

@@ -203,7 +203,7 @@ impl<F: System> Solver<F> for TrustRegion<F> {
 
     type Error = TrustRegionError;
 
-    fn next<Sx, Sfx>(
+    fn solve_next<Sx, Sfx>(
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
@@ -685,7 +685,7 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
 
     type Error = TrustRegionError;
 
-    fn next<Sx>(
+    fn opt_next<Sx>(
         &mut self,
         f: &F,
         dom: &Domain<<F>::Scalar>,

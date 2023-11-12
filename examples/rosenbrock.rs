@@ -43,7 +43,7 @@ fn main() -> Result<(), String> {
 
     for i in 1..=100 {
         solver
-            .next(&f, &dom, &mut x, &mut fx)
+            .solve_next(&f, &dom, &mut x, &mut fx)
             .map_err(|err| format!("{}", err))?;
 
         println!(

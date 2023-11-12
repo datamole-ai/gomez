@@ -192,7 +192,7 @@
 //! for i in 1.. {
 //!     // Do one iteration in the solving process.
 //!     solver
-//!         .next(&f, &dom, &mut x, &mut fx)
+//!         .solve_next(&f, &dom, &mut x, &mut fx)
 //!         .expect("solver encountered an error");
 //!
 //!     println!(

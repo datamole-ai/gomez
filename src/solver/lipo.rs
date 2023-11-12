@@ -350,7 +350,7 @@ where
 
             // Do not fail the optimization on an error from the local
             // optimization.
-            match local_optimizer.next(f, dom, x) {
+            match local_optimizer.opt_next(f, dom, x) {
                 Ok(error) => error,
                 Err(_) => f.apply(x),
             }
@@ -387,7 +387,7 @@ where
 
     type Error = LipoError;
 
-    fn next<Sx>(
+    fn opt_next<Sx>(
         &mut self,
         f: &F,
         dom: &Domain<<F>::Scalar>,
@@ -409,7 +409,7 @@ where
 
     type Error = LipoError;
 
-    fn next<Sx, Sfx>(
+    fn solve_next<Sx, Sfx>(
         &mut self,
         f: &F,
         dom: &Domain<<F>::Scalar>,

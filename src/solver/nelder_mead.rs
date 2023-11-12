@@ -457,7 +457,7 @@ impl<F: Function> Optimizer<F> for NelderMead<F> {
 
     type Error = NelderMeadError;
 
-    fn next<Sx>(
+    fn opt_next<Sx>(
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
@@ -475,7 +475,7 @@ impl<F: System + Function> Solver<F> for NelderMead<F> {
 
     type Error = NelderMeadError;
 
-    fn next<Sx, Sfx>(
+    fn solve_next<Sx, Sfx>(
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
