@@ -1115,7 +1115,7 @@ mod tests {
         // the bounds.
         assert!(matches!(
             solve(&f, &dom, solver, x, 50, eps),
-            Err(SolveError::Solver(TrustRegionError::NoProgress)) | Err(SolveError::Termination)
+            Err(TestingError::Inner(TrustRegionError::NoProgress)) | Err(TestingError::Termination)
         ));
     }
 
@@ -1129,7 +1129,7 @@ mod tests {
             let solver = TrustRegion::new(&f, &dom);
             assert!(match solve(&f, &dom, solver, x, 25, eps) {
                 Ok(root) => f.is_root(&root, eps),
-                Err(SolveError::Solver(TrustRegionError::NoValidStep)) => true,
+                Err(TestingError::Inner(TrustRegionError::NoValidStep)) => true,
                 Err(error) => panic!("{:?}", error),
             });
         }

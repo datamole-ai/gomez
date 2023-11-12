@@ -654,12 +654,13 @@ impl TestProblem for InfiniteSolutions {
 
 impl TestSystem for InfiniteSolutions {}
 
-/// Solving error of the testing solver driver (see [`solve`]).
+/// Solving or optimization error of the testing solver/optimizer driver (see
+/// [`solve`] and [`optimize`]).
 #[derive(Debug, Error)]
-pub enum SolveError<E: StdError + 'static> {
+pub enum TestingError<E: StdError + 'static> {
     /// Error of the solver used.
     #[error("{0}")]
-    Solver(#[from] E),
+    Inner(#[from] E),
     /// Solver did not terminate.
     #[error("solver did not terminate")]
     Termination,
@@ -673,7 +674,7 @@ pub fn solve<F: TestSystem, S: Solver<F>>(
     mut x: OVector<F::Scalar, F::Dim>,
     max_iters: usize,
     tolerance: F::Scalar,
-) -> Result<OVector<F::Scalar, F::Dim>, SolveError<S::Error>>
+) -> Result<OVector<F::Scalar, F::Dim>, TestingError<S::Error>>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     S::Error: StdError,
@@ -689,7 +690,7 @@ where
         }
 
         if iter == max_iters {
-            return Err(SolveError::Termination);
+            return Err(TestingError::Termination);
         } else {
             iter += 1;
         }
@@ -705,7 +706,7 @@ pub fn optimize<F: Function, O: Optimizer<F>>(
     min: F::Scalar,
     max_iters: usize,
     tolerance: F::Scalar,
-) -> Result<OVector<F::Scalar, F::Dim>, SolveError<O::Error>>
+) -> Result<OVector<F::Scalar, F::Dim>, TestingError<O::Error>>
 where
     DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     O::Error: StdError,
@@ -721,7 +722,7 @@ where
         }
 
         if iter == max_iters {
-            return Err(SolveError::Termination);
+            return Err(TestingError::Termination);
         } else {
             iter += 1;
         }

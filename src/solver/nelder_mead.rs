@@ -629,7 +629,7 @@ mod tests {
         // outside the bounds.
         assert!(matches!(
             solve(&f, &dom, solver, x, 5, eps),
-            Err(SolveError::Solver(NelderMeadError::SimplexCollapsed))
+            Err(TestingError::Inner(NelderMeadError::SimplexCollapsed))
         ));
     }
 
