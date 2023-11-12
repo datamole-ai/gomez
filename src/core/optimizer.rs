@@ -23,23 +23,21 @@ use super::{domain::Domain, function::Function};
 /// use gomez::nalgebra as na;
 /// use gomez::*;
 /// use na::{storage::StorageMut, Dynamic, IsContiguous, Vector};
-/// use rand::Rng;
-/// use rand_distr::{uniform::SampleUniform, Distribution, Standard};
+/// use fastrand::Rng;
 ///
-/// struct Random<R> {
-///     rng: R,
+/// struct Random {
+///     rng: Rng,
 /// }
 ///
-/// impl<R> Random<R> {
-///     fn new(rng: R) -> Self {
+/// impl Random {
+///     fn new(rng: Rng) -> Self {
 ///         Self { rng }
 ///     }
 /// }
 ///
-/// impl<F: Function, R: Rng> Optimizer<F> for Random<R>
+/// impl<F: Function> Optimizer<F> for Random
 /// where
-///     F::Field: SampleUniform,
-///     Standard: Distribution<F::Field>,
+///     F::Field: Sample,
 /// {
 ///     const NAME: &'static str = "Random";
 ///     type Error = std::convert::Infallible;
