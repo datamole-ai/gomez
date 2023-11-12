@@ -24,10 +24,9 @@
 use getset::{CopyGetters, Setters};
 use log::debug;
 use nalgebra::{
-    allocator::Allocator,
     convert,
     storage::{Storage, StorageMut},
-    DefaultAllocator, Dim, DimName, IsContiguous, OVector, RealField, Vector, U1,
+    Dim, DimName, Dynamic, IsContiguous, OVector, RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
 use thiserror::Error;
@@ -87,7 +86,7 @@ impl<F: Problem> Default for NelderMeadOptions<F> {
 }
 
 impl<F: Problem> NelderMeadOptions<F> {
-    fn overwrite_coeffs(&mut self, f: &F) {
+    fn overwrite_coeffs(&mut self, dom: &Domain<F::Scalar>) {
         let Self {
             family,
             reflection_coeff,
@@ -106,7 +105,7 @@ impl<F: Problem> NelderMeadOptions<F> {
                 *shrink_coeff = convert(0.5);
             }
             CoefficientsFamily::Balanced => {
-                let n: F::Scalar = convert(f.dim().value() as f64);
+                let n: F::Scalar = convert(dom.dim() as f64);
                 let n_inv = F::Scalar::one() / n;
 
                 *reflection_coeff = convert(-1.0);
@@ -131,53 +130,49 @@ impl<F: Problem> NelderMeadOptions<F> {
 }
 
 /// Nelder-Mead solver. See [module](self) documentation for more details.
-pub struct NelderMead<F: Problem>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+pub struct NelderMead<F: Problem> {
     options: NelderMeadOptions<F>,
-    fx: OVector<F::Scalar, F::Dim>,
-    fx_best: OVector<F::Scalar, F::Dim>,
-    scale: OVector<F::Scalar, F::Dim>,
-    centroid: OVector<F::Scalar, F::Dim>,
-    reflection: OVector<F::Scalar, F::Dim>,
-    expansion: OVector<F::Scalar, F::Dim>,
-    contraction: OVector<F::Scalar, F::Dim>,
-    simplex: Vec<OVector<F::Scalar, F::Dim>>,
+    fx: OVector<F::Scalar, Dynamic>,
+    fx_best: OVector<F::Scalar, Dynamic>,
+    scale: OVector<F::Scalar, Dynamic>,
+    centroid: OVector<F::Scalar, Dynamic>,
+    reflection: OVector<F::Scalar, Dynamic>,
+    expansion: OVector<F::Scalar, Dynamic>,
+    contraction: OVector<F::Scalar, Dynamic>,
+    simplex: Vec<OVector<F::Scalar, Dynamic>>,
     errors: Vec<F::Scalar>,
     sort_perm: Vec<usize>,
 }
 
-impl<F: Problem> NelderMead<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: Problem> NelderMead<F> {
     /// Initializes Nelder-Mead solver with default options.
     pub fn new(f: &F, dom: &Domain<F::Scalar>) -> Self {
         Self::with_options(f, dom, NelderMeadOptions::default())
     }
 
     /// Initializes Nelder-Mead solver with given options.
-    pub fn with_options(f: &F, dom: &Domain<F::Scalar>, mut options: NelderMeadOptions<F>) -> Self {
-        options.overwrite_coeffs(f);
+    pub fn with_options(_: &F, dom: &Domain<F::Scalar>, mut options: NelderMeadOptions<F>) -> Self {
+        let dim = Dynamic::new(dom.dim());
+
+        options.overwrite_coeffs(dom);
 
         let scale = dom
             .scale()
-            .map(|scale| OVector::from_iterator_generic(f.dim(), U1::name(), scale.iter().copied()))
-            .unwrap_or_else(|| OVector::from_element_generic(f.dim(), U1::name(), convert(1.0)));
+            .map(|scale| OVector::from_iterator_generic(dim, U1::name(), scale.iter().copied()))
+            .unwrap_or_else(|| OVector::from_element_generic(dim, U1::name(), convert(1.0)));
 
         Self {
             options,
-            fx: OVector::zeros_generic(f.dim(), U1::name()),
-            fx_best: OVector::zeros_generic(f.dim(), U1::name()),
+            fx: OVector::zeros_generic(dim, U1::name()),
+            fx_best: OVector::zeros_generic(dim, U1::name()),
             scale,
-            centroid: OVector::zeros_generic(f.dim(), U1::name()),
-            reflection: OVector::zeros_generic(f.dim(), U1::name()),
-            expansion: OVector::zeros_generic(f.dim(), U1::name()),
-            contraction: OVector::zeros_generic(f.dim(), U1::name()),
-            simplex: Vec::with_capacity(f.dim().value() + 1),
-            errors: Vec::with_capacity(f.dim().value() + 1),
-            sort_perm: Vec::with_capacity(f.dim().value() + 1),
+            centroid: OVector::zeros_generic(dim, U1::name()),
+            reflection: OVector::zeros_generic(dim, U1::name()),
+            expansion: OVector::zeros_generic(dim, U1::name()),
+            contraction: OVector::zeros_generic(dim, U1::name()),
+            simplex: Vec::with_capacity(dom.dim() + 1),
+            errors: Vec::with_capacity(dom.dim() + 1),
+            sort_perm: Vec::with_capacity(dom.dim() + 1),
         }
     }
 
@@ -201,18 +196,15 @@ pub enum NelderMeadError {
     SimplexCollapsed,
 }
 
-impl<F: Function> NelderMead<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: Function> NelderMead<F> {
     fn next_inner<Sx>(
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
     ) -> Result<F::Scalar, NelderMeadError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
     {
         let NelderMeadOptions {
             reflection_coeff,
@@ -237,7 +229,7 @@ where
             ..
         } = self;
 
-        let n = f.dim().value();
+        let n = dom.dim();
         let inf = convert(f64::INFINITY);
 
         if simplex.is_empty() {
@@ -499,10 +491,7 @@ where
     }
 }
 
-impl<F: Function> Optimizer<F> for NelderMead<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: Function> Optimizer<F> for NelderMead<F> {
     const NAME: &'static str = "Nelder-Mead";
 
     type Error = NelderMeadError;
@@ -511,19 +500,16 @@ where
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
     ) -> Result<F::Scalar, Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
     {
         self.next_inner(f, dom, x)
     }
 }
 
-impl<F: System + Function> Solver<F> for NelderMead<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: System + Function> Solver<F> for NelderMead<F> {
     const NAME: &'static str = "Nelder-Mead";
 
     type Error = NelderMeadError;
@@ -532,12 +518,12 @@ where
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sfx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<F::Scalar, Dynamic>,
     {
         self.next_inner(f, dom, x)
             .map(|_| fx.copy_from(&self.fx_best))
@@ -622,7 +608,7 @@ mod tests {
         let f = BullardBiegler::new();
         let dom = f.domain();
 
-        let x = nalgebra::vector![1.0, 1.0];
+        let x = nalgebra::dvector![1.0, 1.0];
         let solver = NelderMead::new(&f, &dom);
         let eps = convert(1e-12);
 

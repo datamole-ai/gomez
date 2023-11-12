@@ -24,6 +24,7 @@ use std::error::Error as StdError;
 
 use nalgebra::{
     allocator::Allocator,
+    dvector,
     storage::{Storage, StorageMut},
     vector, DVector, DefaultAllocator, Dim, DimName, Dynamic, IsContiguous, OVector, Vector, U1,
     U2,
@@ -34,34 +35,30 @@ use crate::core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, Sy
 
 /// Extension of the [`System`] trait that provides additional information that
 /// is useful for testing solvers.
-pub trait TestProblem: Problem
-where
-    DefaultAllocator: Allocator<Self::Scalar, Self::Dim>,
-{
+pub trait TestProblem: Problem {
     /// Standard initial values for the problem. Using the same initial values is
     /// essential for fair comparison of methods.
-    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>>;
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Dynamic>>;
 }
 
 /// Extension of the [`System`] trait that provides additional information that
 /// is useful for testing solvers.
 pub trait TestSystem: System + TestProblem
 where
-    DefaultAllocator: Allocator<Self::Scalar, Self::Dim>,
     Self::Scalar: approx::RelativeEq,
 {
     /// A set of roots (if known and finite). This is mostly just for
     /// information, for example to know how close a solver got even if it
     /// failed. For testing if a given point is root, [`TestSystem::is_root`]
     /// should be used.
-    fn roots(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn roots(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         Vec::new()
     }
 
     /// Test if given point is a root of the system, given the tolerance `eps`.
-    fn is_root<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>, eps: Self::Scalar) -> bool
+    fn is_root<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>, eps: Self::Scalar) -> bool
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
         let mut fx = x.clone_owned();
         if self.eval(x, &mut fx).is_ok() {
@@ -76,21 +73,20 @@ where
 /// that is useful for testing optimizers.
 pub trait TestFunction: Function + TestProblem
 where
-    DefaultAllocator: Allocator<Self::Scalar, Self::Dim>,
     Self::Scalar: approx::RelativeEq,
 {
     /// A set of global optima (if known and finite). This is mostly just for
     /// information, for example to know how close an optimizer got even if it
     /// failed. For testing if a given point is global optimum, [`TestFunction::is_optimum`]
     /// should be used.
-    fn optima(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn optima(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         Vec::new()
     }
 
     /// Test if given point is a root of the system, given the tolerance `eps`.
-    fn is_optimum<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>, eps: Self::Scalar) -> bool
+    fn is_optimum<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>, eps: Self::Scalar) -> bool
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous;
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous;
 }
 
 /// [Extended Rosenbrock
@@ -141,11 +137,6 @@ impl Default for ExtendedRosenbrock {
 
 impl Problem for ExtendedRosenbrock {
     type Scalar = f64;
-    type Dim = Dynamic;
-
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
-    }
 
     fn domain(&self) -> Domain<Self::Scalar> {
         (0..self.n)
@@ -163,12 +154,12 @@ impl Problem for ExtendedRosenbrock {
 impl System for ExtendedRosenbrock {
     fn eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+        x: &Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<(), ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         for i in 0..(self.n / 2) {
             let i1 = 2 * i;
@@ -186,7 +177,7 @@ impl System for ExtendedRosenbrock {
 }
 
 impl TestProblem for ExtendedRosenbrock {
-    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         let init1 = DVector::from_iterator(
             self.n,
             (0..self.n).map(|i| if i % 2 == 0 { -1.2 } else { 1.0 }),
@@ -202,7 +193,7 @@ impl TestProblem for ExtendedRosenbrock {
 }
 
 impl TestSystem for ExtendedRosenbrock {
-    fn roots(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn roots(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         let root = (0..self.n).map(|i| {
             if i % 2 == 0 {
                 1.0 / self.alpha
@@ -250,22 +241,21 @@ impl Default for ExtendedPowell {
 
 impl Problem for ExtendedPowell {
     type Scalar = f64;
-    type Dim = Dynamic;
 
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
+    fn domain(&self) -> Domain<Self::Scalar> {
+        Domain::unconstrained(self.n)
     }
 }
 
 impl System for ExtendedPowell {
     fn eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+        x: &Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<(), ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         for i in 0..(self.n / 4) {
             let i1 = 4 * i;
@@ -284,7 +274,7 @@ impl System for ExtendedPowell {
 }
 
 impl TestProblem for ExtendedPowell {
-    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         let init = DVector::from_iterator(
             self.n,
             (0..self.n).map(|i| match i % 4 {
@@ -301,7 +291,7 @@ impl TestProblem for ExtendedPowell {
 }
 
 impl TestSystem for ExtendedPowell {
-    fn roots(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn roots(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         vec![DVector::from_element(self.n, 0.0)]
     }
 }
@@ -333,11 +323,6 @@ impl Default for BullardBiegler {
 
 impl Problem for BullardBiegler {
     type Scalar = f64;
-    type Dim = U2;
-
-    fn dim(&self) -> Self::Dim {
-        U2::name()
-    }
 
     fn domain(&self) -> Domain<Self::Scalar> {
         [(5.45e-6, 4.553), (2.196e-3, 18.21)].into_iter().collect()
@@ -347,12 +332,12 @@ impl Problem for BullardBiegler {
 impl System for BullardBiegler {
     fn eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+        x: &Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<(), ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         fx[0] = 1e4 * x[0] * x[1] - 1.0;
         fx[1] = (-x[0]).exp() + (-x[1]).exp() - 1.001;
@@ -362,16 +347,16 @@ impl System for BullardBiegler {
 }
 
 impl TestProblem for BullardBiegler {
-    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
-        let init1 = vector![0.1, 1.0];
-        let init2 = vector![1.0, 1.0];
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
+        let init1 = dvector![0.1, 1.0];
+        let init2 = dvector![1.0, 1.0];
         vec![init1, init2]
     }
 }
 
 impl TestSystem for BullardBiegler {
-    fn roots(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
-        vec![vector![1.45e-5, 6.8933353]]
+    fn roots(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
+        vec![dvector![1.45e-5, 6.8933353]]
     }
 }
 
@@ -407,22 +392,21 @@ impl Default for Sphere {
 
 impl Problem for Sphere {
     type Scalar = f64;
-    type Dim = Dynamic;
 
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
+    fn domain(&self) -> Domain<Self::Scalar> {
+        Domain::unconstrained(self.n)
     }
 }
 
 impl System for Sphere {
     fn eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+        x: &Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<(), ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         for i in 0..self.n {
             fx[i] = x[i].powi(2);
@@ -433,7 +417,7 @@ impl System for Sphere {
 }
 
 impl TestProblem for Sphere {
-    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         let init = DVector::from_iterator(
             self.n,
             (0..self.n).map(|i| if i % 2 == 0 { 10.0 } else { -10.0 }),
@@ -444,19 +428,19 @@ impl TestProblem for Sphere {
 }
 
 impl TestSystem for Sphere {
-    fn roots(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn roots(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         vec![DVector::from_element(self.n, 0.0)]
     }
 }
 
 impl TestFunction for Sphere {
-    fn optima(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn optima(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         <Sphere as TestSystem>::roots(self)
     }
 
-    fn is_optimum<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>, eps: Self::Scalar) -> bool
+    fn is_optimum<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>, eps: Self::Scalar) -> bool
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
         self.apply(x).map(|fx| fx.abs() <= eps).unwrap_or(false)
     }
@@ -493,22 +477,21 @@ impl Default for Brown {
 
 impl Problem for Brown {
     type Scalar = f64;
-    type Dim = Dynamic;
 
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
+    fn domain(&self) -> Domain<Self::Scalar> {
+        Domain::unconstrained(self.n)
     }
 }
 
 impl System for Brown {
     fn eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+        x: &Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<(), ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         fx[0] = x.iter().product::<f64>() - 1.0;
 
@@ -521,7 +504,7 @@ impl System for Brown {
 }
 
 impl TestProblem for Brown {
-    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         let init = DVector::zeros_generic(Dynamic::from_usize(self.n), U1::name());
         vec![init]
     }
@@ -560,22 +543,21 @@ impl Default for Exponential {
 
 impl Problem for Exponential {
     type Scalar = f64;
-    type Dim = Dynamic;
 
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
+    fn domain(&self) -> Domain<Self::Scalar> {
+        Domain::unconstrained(2)
     }
 }
 
 impl System for Exponential {
     fn eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+        x: &Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<(), ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         for i in 0..self.n {
             fx[i] = x[i] - (((i + 1) as f64) * x.sum()).cos().exp();
@@ -586,7 +568,7 @@ impl System for Exponential {
 }
 
 impl TestProblem for Exponential {
-    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         let init = DVector::zeros_generic(Dynamic::from_usize(self.n), U1::name());
         vec![init]
     }
@@ -616,22 +598,21 @@ impl Default for InfiniteSolutions {
 
 impl Problem for InfiniteSolutions {
     type Scalar = f64;
-    type Dim = Dynamic;
 
-    fn dim(&self) -> Self::Dim {
-        Dynamic::from_usize(self.n)
+    fn domain(&self) -> Domain<Self::Scalar> {
+        Domain::unconstrained(self.n)
     }
 }
 
 impl System for InfiniteSolutions {
     fn eval<Sx, Sfx>(
         &self,
-        _x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+        _x: &Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<(), ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         for i in 0..self.n {
             fx[i] = 0.0;
@@ -642,7 +623,7 @@ impl System for InfiniteSolutions {
 }
 
 impl TestProblem for InfiniteSolutions {
-    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Dynamic>> {
         let init = DVector::zeros_generic(Dynamic::from_usize(self.n), U1::name());
         vec![init]
     }
@@ -667,12 +648,11 @@ pub fn solve<F: TestSystem, S: Solver<F>>(
     f: &F,
     dom: &Domain<F::Scalar>,
     mut solver: S,
-    mut x: OVector<F::Scalar, F::Dim>,
+    mut x: OVector<F::Scalar, Dynamic>,
     max_iters: usize,
     tolerance: F::Scalar,
-) -> Result<OVector<F::Scalar, F::Dim>, TestingError<S::Error>>
+) -> Result<OVector<F::Scalar, Dynamic>, TestingError<S::Error>>
 where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     S::Error: StdError,
 {
     let mut fx = x.clone_owned();
@@ -698,13 +678,12 @@ pub fn optimize<F: Function, O: Optimizer<F>>(
     f: &F,
     dom: &Domain<F::Scalar>,
     mut optimizer: O,
-    mut x: OVector<F::Scalar, F::Dim>,
+    mut x: OVector<F::Scalar, Dynamic>,
     min: F::Scalar,
     max_iters: usize,
     tolerance: F::Scalar,
-) -> Result<OVector<F::Scalar, F::Dim>, TestingError<O::Error>>
+) -> Result<OVector<F::Scalar, Dynamic>, TestingError<O::Error>>
 where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     O::Error: StdError,
 {
     let mut iter = 0;
@@ -731,14 +710,13 @@ pub fn iter<F: TestSystem, S: Solver<F>, G>(
     f: &F,
     dom: &Domain<F::Scalar>,
     mut solver: S,
-    mut x: OVector<F::Scalar, F::Dim>,
+    mut x: OVector<F::Scalar, Dynamic>,
     iters: usize,
     mut inspect: G,
 ) -> Result<(), S::Error>
 where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     S::Error: StdError,
-    G: FnMut(&S, &OVector<F::Scalar, F::Dim>, F::Scalar, usize),
+    G: FnMut(&S, &OVector<F::Scalar, Dynamic>, F::Scalar, usize),
 {
     let mut fx = x.clone_owned();
 

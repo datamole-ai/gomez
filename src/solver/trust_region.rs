@@ -30,10 +30,7 @@
 use getset::{CopyGetters, Setters};
 use log::debug;
 use nalgebra::{
-    allocator::{Allocator, Reallocator},
-    convert,
-    storage::StorageMut,
-    ComplexField, DefaultAllocator, Dim, DimMin, DimName, IsContiguous, OMatrix, OVector,
+    convert, storage::StorageMut, ComplexField, DimName, Dynamic, IsContiguous, OMatrix, OVector,
     RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
@@ -122,34 +119,26 @@ impl<F: Problem> Default for TrustRegionOptions<F> {
 }
 
 /// Trust region solver. See [module](self) documentation for more details.
-pub struct TrustRegion<F: Problem>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-{
+pub struct TrustRegion<F: Problem> {
     options: TrustRegionOptions<F>,
     delta: F::Scalar,
     mu: F::Scalar,
-    scale: OVector<F::Scalar, F::Dim>,
+    scale: OVector<F::Scalar, Dynamic>,
     jac: Jacobian<F>,
     grad: Gradient<F>,
     hes: Hessian<F>,
-    q_tr_fx_neg: OVector<F::Scalar, F::Dim>,
-    newton: OVector<F::Scalar, F::Dim>,
-    grad_neg: OVector<F::Scalar, F::Dim>,
-    cauchy: OVector<F::Scalar, F::Dim>,
-    jac_tr_jac: OMatrix<F::Scalar, F::Dim, F::Dim>,
-    p: OVector<F::Scalar, F::Dim>,
-    temp: OVector<F::Scalar, F::Dim>,
+    q_tr_fx_neg: OVector<F::Scalar, Dynamic>,
+    newton: OVector<F::Scalar, Dynamic>,
+    grad_neg: OVector<F::Scalar, Dynamic>,
+    cauchy: OVector<F::Scalar, Dynamic>,
+    jac_tr_jac: OMatrix<F::Scalar, Dynamic, Dynamic>,
+    p: OVector<F::Scalar, Dynamic>,
+    temp: OVector<F::Scalar, Dynamic>,
     iter: usize,
     rejections_cnt: usize,
 }
 
-impl<F: Problem> TrustRegion<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-{
+impl<F: Problem> TrustRegion<F> {
     /// Initializes trust region solver with default options.
     pub fn new(f: &F, dom: &Domain<F::Scalar>) -> Self {
         Self::with_options(f, dom, TrustRegionOptions::default())
@@ -157,6 +146,7 @@ where
 
     /// Initializes trust region solver with given options.
     pub fn with_options(f: &F, dom: &Domain<F::Scalar>, options: TrustRegionOptions<F>) -> Self {
+        let dim = Dynamic::new(dom.dim());
         let delta_init = match options.delta_init {
             DeltaInit::Fixed(fixed) => fixed,
             // Zero is recognized in the function `next`.
@@ -164,8 +154,8 @@ where
         };
         let scale = dom
             .scale()
-            .map(|scale| OVector::from_iterator_generic(f.dim(), U1::name(), scale.iter().copied()))
-            .unwrap_or_else(|| OVector::from_element_generic(f.dim(), U1::name(), convert(1.0)));
+            .map(|scale| OVector::from_iterator_generic(dim, U1::name(), scale.iter().copied()))
+            .unwrap_or_else(|| OVector::from_element_generic(dim, U1::name(), convert(1.0)));
 
         Self {
             options,
@@ -175,13 +165,13 @@ where
             jac: Jacobian::zeros(f),
             grad: Gradient::zeros(f),
             hes: Hessian::zeros(f),
-            q_tr_fx_neg: OVector::zeros_generic(f.dim(), U1::name()),
-            newton: OVector::zeros_generic(f.dim(), U1::name()),
-            grad_neg: OVector::zeros_generic(f.dim(), U1::name()),
-            cauchy: OVector::zeros_generic(f.dim(), U1::name()),
-            jac_tr_jac: OMatrix::zeros_generic(f.dim(), f.dim()),
-            p: OVector::zeros_generic(f.dim(), U1::name()),
-            temp: OVector::zeros_generic(f.dim(), U1::name()),
+            q_tr_fx_neg: OVector::zeros_generic(dim, U1::name()),
+            newton: OVector::zeros_generic(dim, U1::name()),
+            grad_neg: OVector::zeros_generic(dim, U1::name()),
+            cauchy: OVector::zeros_generic(dim, U1::name()),
+            jac_tr_jac: OMatrix::zeros_generic(dim, dim),
+            p: OVector::zeros_generic(dim, U1::name()),
+            temp: OVector::zeros_generic(dim, U1::name()),
             iter: 1,
             rejections_cnt: 0,
         }
@@ -222,14 +212,7 @@ pub enum TrustRegionError {
     NoProgress,
 }
 
-impl<F: System> Solver<F> for TrustRegion<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-    F::Dim: DimMin<F::Dim, Output = F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, <F::Dim as DimMin<F::Dim>>::Output>,
-    DefaultAllocator: Reallocator<F::Scalar, F::Dim, F::Dim, F::Dim, F::Dim>,
-{
+impl<F: System> Solver<F> for TrustRegion<F> {
     const NAME: &'static str = "Trust-region";
 
     type Error = TrustRegionError;
@@ -238,12 +221,12 @@ where
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sfx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<F::Scalar, Dynamic>,
     {
         let TrustRegionOptions {
             delta_min,
@@ -276,9 +259,9 @@ where
         } = self;
 
         #[allow(clippy::needless_late_init)]
-        let scaled_newton: &mut OVector<F::Scalar, F::Dim>;
-        let scale_inv2: &mut OVector<F::Scalar, F::Dim>;
-        let cauchy_scaled: &mut OVector<F::Scalar, F::Dim>;
+        let scaled_newton: &mut OVector<F::Scalar, Dynamic>;
+        let scale_inv2: &mut OVector<F::Scalar, Dynamic>;
+        let cauchy_scaled: &mut OVector<F::Scalar, Dynamic>;
 
         #[derive(Debug, Clone, Copy, PartialEq)]
         enum StepType {
@@ -538,7 +521,7 @@ where
 
                     // Compute B + lambda I.
                     let jac_tr_jac_lambda = jac_tr_jac;
-                    for i in 0..f.dim().value() {
+                    for i in 0..dom.dim() {
                         jac_tr_jac_lambda[(i, i)] += lambda;
                     }
 
@@ -710,14 +693,7 @@ where
     }
 }
 
-impl<F: Function> Optimizer<F> for TrustRegion<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-    F::Dim: DimMin<F::Dim, Output = F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, <F::Dim as DimMin<F::Dim>>::Output>,
-    DefaultAllocator: Reallocator<F::Scalar, F::Dim, F::Dim, F::Dim, F::Dim>,
-{
+impl<F: Function> Optimizer<F> for TrustRegion<F> {
     const NAME: &'static str = "Trust-region";
 
     type Error = TrustRegionError;
@@ -726,10 +702,10 @@ where
         &mut self,
         f: &F,
         dom: &Domain<<F>::Scalar>,
-        x: &mut Vector<<F>::Scalar, <F>::Dim, Sx>,
+        x: &mut Vector<<F>::Scalar, Dynamic, Sx>,
     ) -> Result<<F>::Scalar, Self::Error>
     where
-        Sx: StorageMut<<F>::Scalar, <F>::Dim> + IsContiguous,
+        Sx: StorageMut<<F>::Scalar, Dynamic> + IsContiguous,
     {
         let TrustRegionOptions {
             delta_min,
@@ -758,9 +734,9 @@ where
         } = self;
 
         #[allow(clippy::needless_late_init)]
-        let scaled_newton: &mut OVector<F::Scalar, F::Dim>;
-        let scale_inv2_grad: &mut OVector<F::Scalar, F::Dim>;
-        let cauchy_scaled: &mut OVector<F::Scalar, F::Dim>;
+        let scaled_newton: &mut OVector<F::Scalar, Dynamic>;
+        let scale_inv2_grad: &mut OVector<F::Scalar, Dynamic>;
+        let cauchy_scaled: &mut OVector<F::Scalar, Dynamic>;
 
         #[derive(Debug, Clone, Copy, PartialEq)]
         enum StepType {
@@ -1110,7 +1086,7 @@ mod tests {
         let f = BullardBiegler::new();
         let dom = f.domain();
 
-        let x = nalgebra::vector![1.0, 1.0];
+        let x = nalgebra::dvector![1.0, 1.0];
         let solver = TrustRegion::new(&f, &dom);
         let eps = convert(1e-12);
 

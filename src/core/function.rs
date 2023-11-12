@@ -1,6 +1,6 @@
 use nalgebra::{
-    allocator::Allocator, storage::Storage, storage::StorageMut, DefaultAllocator, IsContiguous,
-    Vector,
+    allocator::Allocator, storage::Storage, storage::StorageMut, DefaultAllocator, Dynamic,
+    IsContiguous, Vector,
 };
 use num_traits::Zero;
 
@@ -14,14 +14,14 @@ use super::{
 /// ## Defining a function
 ///
 /// A function is any type that implements [`Function`] and [`Problem`] traits.
-/// There are two required associated types (scalar type and dimension type) and
-/// two required methods: [`apply`](Function::apply) and [`dim`](Problem::dim).
+/// There is one required associated type (scalar) and one required method
+/// ([`apply`](Function::apply)).
 ///
 /// ```rust
 /// use gomez::core::Function;
 /// use gomez::nalgebra as na;
 /// use gomez::prelude::*;
-/// use na::{Dim, DimName, IsContiguous};
+/// use na::{Dynamic, IsContiguous};
 ///
 /// // A problem is represented by a type.
 /// struct Rosenbrock {
@@ -32,12 +32,10 @@ use super::{
 /// impl Problem for Rosenbrock {
 ///     // The numeric type. Usually f64 or f32.
 ///     type Scalar = f64;
-///     // The dimension of the problem. Can be either statically known or dynamic.
-///     type Dim = na::U2;
 ///
-///     // Return the actual dimension of the system.
-///     fn dim(&self) -> Self::Dim {
-///         na::U2::name()
+///     // The domain of the problem (could be bound-constrained).
+///     fn domain(&self) -> Domain<Self::Scalar> {
+///         Domain::unconstrained(2)
 ///     }
 /// }
 ///
@@ -45,10 +43,10 @@ use super::{
 ///     // Apply trial values of variables to the function.
 ///     fn apply<Sx>(
 ///         &self,
-///         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
+///         x: &na::Vector<Self::Scalar, Dynamic, Sx>,
 ///     ) -> Result<Self::Scalar, ProblemError>
 ///     where
-///         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
+///         Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
 ///     {
 ///         // Compute the function value.
 ///         Ok((self.a - x[0]).powi(2) + self.b * (x[1] - x[0].powi(2)).powi(2))
@@ -59,10 +57,10 @@ pub trait Function: Problem {
     /// Calculate the function value given values of the variables.
     fn apply<Sx>(
         &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
+        x: &Vector<Self::Scalar, Dynamic, Sx>,
     ) -> Result<Self::Scalar, ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous;
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous;
 
     /// Calculate the norm of residuals of the system given values of the
     /// variable for cases when the function is actually a system of equations.
@@ -72,12 +70,12 @@ pub trait Function: Problem {
     /// do not make an unnecessary allocation for it.
     fn apply_eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+        x: &Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<Self::Scalar, ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         let norm = self.apply(x)?;
         fx.fill(Self::Scalar::zero());
@@ -88,14 +86,11 @@ pub trait Function: Problem {
 
 impl<F: System> Function for F
 where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
+    DefaultAllocator: Allocator<F::Scalar, Dynamic>,
 {
-    fn apply<Sx>(
-        &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-    ) -> Result<Self::Scalar, ProblemError>
+    fn apply<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
         let mut fx = x.clone_owned();
         self.apply_eval(x, &mut fx)
@@ -103,12 +98,12 @@ where
 
     fn apply_eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut Vector<Self::Scalar, Self::Dim, Sfx>,
+        x: &Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<Self::Scalar, ProblemError>
     where
-        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Self::Dim>,
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         self.eval(x, fx)?;
         let norm = fx.norm();

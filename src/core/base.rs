@@ -1,4 +1,4 @@
-use nalgebra::{Dim, RealField};
+use nalgebra::RealField;
 use thiserror::Error;
 
 use super::domain::Domain;
@@ -9,27 +9,16 @@ pub trait Problem {
     /// Type of the scalar, usually f32 or f64.
     type Scalar: RealField + Copy;
 
-    /// Dimension of the system. Can be fixed
-    /// ([`Const`](nalgebra::base::dimension::Const)) or dynamic
-    /// ([`Dynamic`](nalgebra::base::dimension::Dynamic)).
-    type Dim: Dim;
-
-    /// Return the actual dimension of the system. This is needed for dynamic
-    /// systems.
-    fn dim(&self) -> Self::Dim;
-
     /// Get the domain (bound constraints) of the system. If not overridden, the
     /// system is unconstrained.
-    fn domain(&self) -> Domain<Self::Scalar> {
-        Domain::unconstrained(self.dim().value())
-    }
+    fn domain(&self) -> Domain<Self::Scalar>;
 }
 
 /// Error encountered while applying variables to the problem.
 #[derive(Debug, Error)]
 pub enum ProblemError {
-    /// The number of variables does not match the dimensionality
-    /// ([`Problem::dim`]) of the problem.
+    /// The number of variables does not match the dimensionality of the problem
+    /// domain.
     #[error("invalid dimensionality")]
     InvalidDimensionality,
     /// An invalid value (NaN, positive or negative infinity) of a residual or

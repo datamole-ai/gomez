@@ -1,7 +1,7 @@
 use gomez::nalgebra as na;
 use gomez::prelude::*;
 use gomez::solver::TrustRegion;
-use na::{DimName, IsContiguous};
+use na::{Dynamic, IsContiguous};
 
 // https://en.wikipedia.org/wiki/Rosenbrock_function
 struct Rosenbrock {
@@ -11,22 +11,21 @@ struct Rosenbrock {
 
 impl Problem for Rosenbrock {
     type Scalar = f64;
-    type Dim = na::U2;
 
-    fn dim(&self) -> Self::Dim {
-        na::U2::name()
+    fn domain(&self) -> Domain<Self::Scalar> {
+        Domain::unconstrained(2)
     }
 }
 
 impl System for Rosenbrock {
     fn eval<Sx, Sfx>(
         &self,
-        x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
-        fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
+        x: &na::Vector<Self::Scalar, Dynamic, Sx>,
+        fx: &mut na::Vector<Self::Scalar, Dynamic, Sfx>,
     ) -> Result<(), ProblemError>
     where
-        Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
-        Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
+        Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sfx: na::storage::StorageMut<Self::Scalar, Dynamic>,
     {
         fx[0] = (self.a - x[0]).powi(2);
         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
@@ -41,9 +40,9 @@ fn main() -> Result<(), String> {
     let mut solver = TrustRegion::new(&f, &dom);
 
     // Initial guess.
-    let mut x = na::vector![-10.0, -5.0];
+    let mut x = na::dvector![-10.0, -5.0];
 
-    let mut fx = na::vector![0.0, 0.0];
+    let mut fx = na::dvector![0.0, 0.0];
 
     for i in 1..=100 {
         solver

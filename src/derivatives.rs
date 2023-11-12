@@ -3,11 +3,9 @@
 use std::ops::Deref;
 
 use nalgebra::{
-    allocator::Allocator,
     convert,
     storage::{Storage, StorageMut},
-    ComplexField, DefaultAllocator, Dim, DimName, IsContiguous, OMatrix, OVector, RealField,
-    Vector, U1,
+    ComplexField, DimName, Dynamic, IsContiguous, OMatrix, OVector, RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
 use thiserror::Error;
@@ -32,42 +30,34 @@ pub enum JacobianError {
 
 /// Jacobian matrix of a system.
 #[derive(Debug)]
-pub struct Jacobian<F: Problem>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-{
-    jac: OMatrix<F::Scalar, F::Dim, F::Dim>,
+pub struct Jacobian<F: Problem> {
+    jac: OMatrix<F::Scalar, Dynamic, Dynamic>,
 }
 
-impl<F: Problem> Jacobian<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-{
+impl<F: Problem> Jacobian<F> {
     /// Initializes the Jacobian matrix with zeros.
     pub fn zeros(f: &F) -> Self {
+        let dim = Dynamic::new(f.domain().dim());
         Self {
-            jac: OMatrix::zeros_generic(f.dim(), f.dim()),
+            jac: OMatrix::zeros_generic(dim, dim),
         }
     }
 }
 
-impl<F: System> Jacobian<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-{
+impl<F: System> Jacobian<F> {
     /// Compute Compute the Jacobian matrix of the system in given point with
     /// given scale of variables. See [`compute`](Jacobian::compute) for more
     /// details.
     pub fn new<Sx, Sscale, Sfx>(
         f: &F,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        scale: &Vector<F::Scalar, F::Dim, Sscale>,
-        fx: &Vector<F::Scalar, F::Dim, Sfx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        scale: &Vector<F::Scalar, Dynamic, Sscale>,
+        fx: &Vector<F::Scalar, Dynamic, Sfx>,
     ) -> Result<Self, JacobianError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sscale: Storage<F::Scalar, F::Dim>,
-        Sfx: Storage<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Scalar, Dynamic>,
+        Sfx: Storage<F::Scalar, Dynamic>,
     {
         let mut jac = Self::zeros(f);
         jac.compute(f, x, scale, fx)?;
@@ -86,14 +76,14 @@ where
     pub fn compute<Sx, Sscale, Sfx>(
         &mut self,
         f: &F,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        scale: &Vector<F::Scalar, F::Dim, Sscale>,
-        fx: &Vector<F::Scalar, F::Dim, Sfx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        scale: &Vector<F::Scalar, Dynamic, Sscale>,
+        fx: &Vector<F::Scalar, Dynamic, Sfx>,
     ) -> Result<&mut Self, JacobianError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sscale: Storage<F::Scalar, F::Dim>,
-        Sfx: Storage<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Scalar, Dynamic>,
+        Sfx: Storage<F::Scalar, Dynamic>,
     {
         let eps: F::Scalar = convert(EPSILON_SQRT);
 
@@ -129,11 +119,8 @@ where
     }
 }
 
-impl<F: Problem> Deref for Jacobian<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-{
-    type Target = OMatrix<F::Scalar, F::Dim, F::Dim>;
+impl<F: Problem> Deref for Jacobian<F> {
+    type Target = OMatrix<F::Scalar, Dynamic, Dynamic>;
 
     fn deref(&self) -> &Self::Target {
         &self.jac
@@ -150,41 +137,33 @@ pub enum GradientError {
 
 /// Gradient vector of a function.
 #[derive(Debug)]
-pub struct Gradient<F: Problem>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
-    grad: OVector<F::Scalar, F::Dim>,
+pub struct Gradient<F: Problem> {
+    grad: OVector<F::Scalar, Dynamic>,
 }
 
-impl<F: Problem> Gradient<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: Problem> Gradient<F> {
     /// Initializes the Gradient matrix with zeros.
     pub fn zeros(f: &F) -> Self {
+        let dim = Dynamic::new(f.domain().dim());
         Self {
-            grad: OVector::zeros_generic(f.dim(), U1::name()),
+            grad: OVector::zeros_generic(dim, U1::name()),
         }
     }
 }
 
-impl<F: Function> Gradient<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: Function> Gradient<F> {
     /// Compute Compute the gradient vector of the function in given point with
     /// given scale of variables. See [`compute`](Gradient::compute) for more
     /// details.
     pub fn new<Sx, Sscale>(
         f: &F,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        scale: &Vector<F::Scalar, F::Dim, Sscale>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: F::Scalar,
     ) -> Result<Self, GradientError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sscale: Storage<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Scalar, Dynamic>,
     {
         let mut grad = Self::zeros(f);
         grad.compute(f, x, scale, fx)?;
@@ -203,17 +182,17 @@ where
     pub fn compute<Sx, Sscale>(
         &mut self,
         f: &F,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        scale: &Vector<F::Scalar, F::Dim, Sscale>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: F::Scalar,
     ) -> Result<&mut Self, GradientError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sscale: Storage<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Scalar, Dynamic>,
     {
         let eps: F::Scalar = convert(EPSILON_SQRT);
 
-        for i in 0..f.dim().value() {
+        for i in 0..x.nrows() {
             let xi = x[i];
 
             // See the implementation of Jacobian for details on computing step size.
@@ -236,11 +215,8 @@ where
     }
 }
 
-impl<F: Problem> Deref for Gradient<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
-    type Target = OVector<F::Scalar, F::Dim>;
+impl<F: Problem> Deref for Gradient<F> {
+    type Target = OVector<F::Scalar, Dynamic>;
 
     fn deref(&self) -> &Self::Target {
         &self.grad
@@ -257,48 +233,37 @@ pub enum HessianError {
 
 /// Hessian matrix of a system.
 #[derive(Debug)]
-pub struct Hessian<F: Problem>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
-    hes: OMatrix<F::Scalar, F::Dim, F::Dim>,
-    steps: OVector<F::Scalar, F::Dim>,
-    neighbors: OVector<F::Scalar, F::Dim>,
+pub struct Hessian<F: Problem> {
+    hes: OMatrix<F::Scalar, Dynamic, Dynamic>,
+    steps: OVector<F::Scalar, Dynamic>,
+    neighbors: OVector<F::Scalar, Dynamic>,
 }
 
-impl<F: Problem> Hessian<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: Problem> Hessian<F> {
     /// Initializes the Hessian matrix with zeros.
     pub fn zeros(f: &F) -> Self {
+        let dim = Dynamic::new(f.domain().dim());
         Self {
-            hes: OMatrix::zeros_generic(f.dim(), f.dim()),
-            steps: OVector::zeros_generic(f.dim(), U1::name()),
-            neighbors: OVector::zeros_generic(f.dim(), U1::name()),
+            hes: OMatrix::zeros_generic(dim, dim),
+            steps: OVector::zeros_generic(dim, U1::name()),
+            neighbors: OVector::zeros_generic(dim, U1::name()),
         }
     }
 }
 
-impl<F: Function> Hessian<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: Function> Hessian<F> {
     /// Compute Compute the Hessian matrix of the function in given point with
     /// given scale of variables. See [`compute`](Hessian::compute) for more
     /// details.
     pub fn new<Sx, Sscale>(
         f: &F,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        scale: &Vector<F::Scalar, F::Dim, Sscale>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: F::Scalar,
     ) -> Result<Self, HessianError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sscale: Storage<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Scalar, Dynamic>,
     {
         let mut hes = Self::zeros(f);
         hes.compute(f, x, scale, fx)?;
@@ -317,17 +282,17 @@ where
     pub fn compute<Sx, Sscale>(
         &mut self,
         f: &F,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        scale: &Vector<F::Scalar, F::Dim, Sscale>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: F::Scalar,
     ) -> Result<&mut Self, HessianError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sscale: Storage<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Scalar, Dynamic>,
     {
         let eps: F::Scalar = convert(EPSILON_CBRT);
 
-        for i in 0..f.dim().value() {
+        for i in 0..x.nrows() {
             let xi = x[i];
 
             // See the implementation of Jacobian for details on computing step size.
@@ -347,7 +312,7 @@ where
             x[i] = xi;
         }
 
-        for i in 0..f.dim().value() {
+        for i in 0..x.nrows() {
             let xi = x[i];
             let stepi = self.steps[i];
 
@@ -361,7 +326,7 @@ where
 
             self.hes[(i, i)] = ((fx - fni) + (fxi - fni)) / (stepi * stepi);
 
-            for j in (i + 1)..f.dim().value() {
+            for j in (i + 1)..x.nrows() {
                 let xj = x[j];
                 let stepj = self.steps[j];
 
@@ -384,12 +349,8 @@ where
     }
 }
 
-impl<F: Problem> Deref for Hessian<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
-    type Target = OMatrix<F::Scalar, F::Dim, F::Dim>;
+impl<F: Problem> Deref for Hessian<F> {
+    type Target = OMatrix<F::Scalar, Dynamic, Dynamic>;
 
     fn deref(&self) -> &Self::Target {
         &self.hes
@@ -399,7 +360,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::{ExtendedPowell, ExtendedRosenbrock};
+    use crate::{
+        core::Domain,
+        testing::{ExtendedPowell, ExtendedRosenbrock},
+    };
 
     use approx::assert_abs_diff_eq;
     use nalgebra::{dmatrix, dvector, Dynamic};
@@ -408,20 +372,19 @@ mod tests {
 
     impl Problem for MixedVars {
         type Scalar = f64;
-        type Dim = Dynamic;
 
-        fn dim(&self) -> Self::Dim {
-            Dynamic::new(2)
+        fn domain(&self) -> Domain<Self::Scalar> {
+            Domain::unconstrained(2)
         }
     }
 
     impl Function for MixedVars {
         fn apply<Sx>(
             &self,
-            x: &Vector<Self::Scalar, Self::Dim, Sx>,
+            x: &Vector<Self::Scalar, Dynamic, Sx>,
         ) -> Result<Self::Scalar, ProblemError>
         where
-            Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
+            Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         {
             // A simple, arbitrary function that produces Hessian matrix with
             // non-zero corners.
