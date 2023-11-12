@@ -103,6 +103,14 @@ jobs:
       - name: Run tests
         run: cargo test --profile ${{ matrix.profile }}
 
+      - name: Compile (gsl-wrapper)
+        working-directory: gsl-wrapper
+        run: cargo build --profile ${{ matrix.profile }} --verbose
+
+      - name: Run tests (gsl-wrapper)
+        working-directory: gsl-wrapper
+        run: cargo test --profile ${{ matrix.profile }}
+
   rust-check-docs:
     name: Rust docs check
     runs-on: ubuntu-latest
