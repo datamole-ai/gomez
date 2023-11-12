@@ -3,21 +3,12 @@
 use std::ops::Deref;
 
 use nalgebra::{
-    convert,
     storage::{Storage, StorageMut},
     ComplexField, DimName, Dynamic, IsContiguous, OMatrix, OVector, RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
 
-use crate::core::{Function, Problem, System};
-
-/// Square root of double precision machine epsilon. This value is a standard
-/// constant for epsilons in approximating first-order derivate-based concepts.
-pub const EPSILON_SQRT: f64 = 0.000000014901161193847656;
-
-/// Cubic root of double precision machine epsilon. This value is a standard
-/// constant for epsilons in approximating second-order derivate-based concepts.
-pub const EPSILON_CBRT: f64 = 0.0000060554544523933395;
+use crate::core::{Function, Problem, RealField as _, System};
 
 /// Jacobian matrix of a system.
 #[derive(Debug)]
@@ -76,7 +67,7 @@ impl<F: System> Jacobian<F> {
         Sscale: Storage<F::Field, Dynamic>,
         Sfx: Storage<F::Field, Dynamic>,
     {
-        let eps: F::Field = convert(EPSILON_SQRT);
+        let eps = F::Field::EPSILON_SQRT;
 
         for (j, mut col) in self.jac.column_iter_mut().enumerate() {
             let xj = x[j];
@@ -173,7 +164,7 @@ impl<F: Function> Gradient<F> {
         Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
         Sscale: Storage<F::Field, Dynamic>,
     {
-        let eps: F::Field = convert(EPSILON_SQRT);
+        let eps = F::Field::EPSILON_SQRT;
 
         for i in 0..x.nrows() {
             let xi = x[i];
@@ -265,7 +256,7 @@ impl<F: Function> Hessian<F> {
         Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
         Sscale: Storage<F::Field, Dynamic>,
     {
-        let eps: F::Field = convert(EPSILON_CBRT);
+        let eps = F::Field::EPSILON_CBRT;
 
         for i in 0..x.nrows() {
             let xi = x[i];
