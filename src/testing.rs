@@ -37,15 +37,22 @@ use crate::{
 
 /// Extension of the [`System`] trait that provides additional information that
 /// is useful for testing solvers.
-pub trait TestSystem: System
+pub trait TestProblem: Problem
+where
+    DefaultAllocator: Allocator<Self::Scalar, Self::Dim>,
+{
+    /// Standard initial values for the problem. Using the same initial values is
+    /// essential for fair comparison of methods.
+    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>>;
+}
+
+/// Extension of the [`System`] trait that provides additional information that
+/// is useful for testing solvers.
+pub trait TestSystem: System + TestProblem
 where
     DefaultAllocator: Allocator<Self::Scalar, Self::Dim>,
     Self::Scalar: approx::RelativeEq,
 {
-    /// Standard initial values for the system. Using the same initial values is
-    /// essential for fair comparison of methods.
-    fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>>;
-
     /// A set of roots (if known and finite). This is mostly just for
     /// information, for example to know how close a solver got even if it
     /// failed. For testing if a given point is root, [`TestSystem::is_root`]
@@ -66,6 +73,27 @@ where
             false
         }
     }
+}
+
+/// Extension of the [`Function`] trait that provides additional information
+/// that is useful for testing optimizers.
+pub trait TestFunction: Function + TestProblem
+where
+    DefaultAllocator: Allocator<Self::Scalar, Self::Dim>,
+    Self::Scalar: approx::RelativeEq,
+{
+    /// A set of global optima (if known and finite). This is mostly just for
+    /// information, for example to know how close an optimizer got even if it
+    /// failed. For testing if a given point is global optimum, [`TestFunction::is_optimum`]
+    /// should be used.
+    fn optima(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+        Vec::new()
+    }
+
+    /// Test if given point is a root of the system, given the tolerance `eps`.
+    fn is_optimum<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>, eps: Self::Scalar) -> bool
+    where
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous;
 }
 
 /// [Extended Rosenbrock
@@ -161,7 +189,7 @@ impl System for ExtendedRosenbrock {
     }
 }
 
-impl TestSystem for ExtendedRosenbrock {
+impl TestProblem for ExtendedRosenbrock {
     fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         let init1 = DVector::from_iterator(
             self.n,
@@ -175,7 +203,9 @@ impl TestSystem for ExtendedRosenbrock {
 
         vec![init1, init2]
     }
+}
 
+impl TestSystem for ExtendedRosenbrock {
     fn roots(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         let root = (0..self.n).map(|i| {
             if i % 2 == 0 {
@@ -257,7 +287,7 @@ impl System for ExtendedPowell {
     }
 }
 
-impl TestSystem for ExtendedPowell {
+impl TestProblem for ExtendedPowell {
     fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         let init = DVector::from_iterator(
             self.n,
@@ -272,7 +302,9 @@ impl TestSystem for ExtendedPowell {
 
         vec![init]
     }
+}
 
+impl TestSystem for ExtendedPowell {
     fn roots(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         vec![DVector::from_element(self.n, 0.0)]
     }
@@ -333,13 +365,15 @@ impl System for BullardBiegler {
     }
 }
 
-impl TestSystem for BullardBiegler {
+impl TestProblem for BullardBiegler {
     fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         let init1 = vector![0.1, 1.0];
         let init2 = vector![1.0, 1.0];
         vec![init1, init2]
     }
+}
 
+impl TestSystem for BullardBiegler {
     fn roots(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         vec![vector![1.45e-5, 6.8933353]]
     }
@@ -402,7 +436,7 @@ impl System for Sphere {
     }
 }
 
-impl TestSystem for Sphere {
+impl TestProblem for Sphere {
     fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         let init = DVector::from_iterator(
             self.n,
@@ -411,9 +445,24 @@ impl TestSystem for Sphere {
 
         vec![init]
     }
+}
 
+impl TestSystem for Sphere {
     fn roots(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         vec![DVector::from_element(self.n, 0.0)]
+    }
+}
+
+impl TestFunction for Sphere {
+    fn optima(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
+        <Sphere as TestSystem>::roots(self)
+    }
+
+    fn is_optimum<Sx>(&self, x: &Vector<Self::Scalar, Self::Dim, Sx>, eps: Self::Scalar) -> bool
+    where
+        Sx: Storage<Self::Scalar, Self::Dim> + IsContiguous,
+    {
+        self.apply(x).map(|fx| fx.abs() <= eps).unwrap_or(false)
     }
 }
 
@@ -475,12 +524,14 @@ impl System for Brown {
     }
 }
 
-impl TestSystem for Brown {
+impl TestProblem for Brown {
     fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         let init = DVector::zeros_generic(Dynamic::from_usize(self.n), U1::name());
         vec![init]
     }
 }
+
+impl TestSystem for Brown {}
 
 /// Exponential function \[4\].
 ///
@@ -538,12 +589,14 @@ impl System for Exponential {
     }
 }
 
-impl TestSystem for Exponential {
+impl TestProblem for Exponential {
     fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         let init = DVector::zeros_generic(Dynamic::from_usize(self.n), U1::name());
         vec![init]
     }
 }
+
+impl TestSystem for Exponential {}
 
 /// This system is true for any assignment of x.
 #[derive(Debug, Clone, Copy)]
@@ -592,12 +645,14 @@ impl System for InfiniteSolutions {
     }
 }
 
-impl TestSystem for InfiniteSolutions {
+impl TestProblem for InfiniteSolutions {
     fn initials(&self) -> Vec<OVector<Self::Scalar, Self::Dim>> {
         let init = DVector::zeros_generic(Dynamic::from_usize(self.n), U1::name());
         vec![init]
     }
 }
+
+impl TestSystem for InfiniteSolutions {}
 
 /// Solving error of the testing solver driver (see [`solve`]).
 #[derive(Debug, Error)]
