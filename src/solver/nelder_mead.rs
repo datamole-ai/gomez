@@ -26,13 +26,13 @@ use log::debug;
 use nalgebra::{
     convert,
     storage::{Storage, StorageMut},
-    Dim, DimName, Dynamic, IsContiguous, OVector, RealField, Vector, U1,
+    ComplexField, Dim, DimName, Dynamic, IsContiguous, OVector, RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Function, FunctionResultExt, Optimizer, Problem, ProblemError, Solver, System},
+    core::{Domain, Function, Optimizer, Problem, Solver, System},
     derivatives::EPSILON_SQRT,
 };
 
@@ -184,12 +184,12 @@ impl<F: Problem> NelderMead<F> {
 /// Error returned from [`NelderMead`] solver.
 #[derive(Debug, Error)]
 pub enum NelderMeadError {
-    /// Error that occurred when evaluating the system.
-    #[error("{0}")]
-    Problem(#[from] ProblemError),
     /// Simplex collapsed so it is impossible to make any progress.
     #[error("simplex collapsed")]
     SimplexCollapsed,
+    /// Simplex contains too many invalid values (NaN, infinity).
+    #[error("simplex contains too many invalid values")]
+    SimplexInvalid,
 }
 
 impl<F: Function> NelderMead<F> {
@@ -224,14 +224,13 @@ impl<F: Function> NelderMead<F> {
         } = self;
 
         let n = dom.dim();
-        let inf = convert(f64::INFINITY);
 
         if simplex.is_empty() {
             // Simplex initialization.
 
             // It is important to return early on error before the point is
             // added to the simplex.
-            let mut error_best = f.apply(x)?;
+            let mut error_best = f.apply(x);
             errors.push(error_best);
             simplex.push(x.clone_owned());
 
@@ -240,24 +239,7 @@ impl<F: Function> NelderMead<F> {
                 xi[j] += scale[j];
                 dom.project_in(&mut xi, j);
 
-                let error = match f.apply(&xi) {
-                    Ok(error) => error,
-                    // Do not fail when invalid value is encountered during
-                    // building the simplex. Instead, treat it as infinity so
-                    // that it is worse than (or "equal" to) any other error and
-                    // hope that it gets replaced. The exception is the very
-                    // point provided by the caller as it is expected to be
-                    // valid and it is erroneous situation if it is not.
-                    Err(ProblemError::InvalidValue) => inf,
-                    Err(error) => {
-                        // Clear the simplex so the solver is not in invalid
-                        // state.
-                        debug!("encountered unexpected error during simplex initialization");
-                        simplex.clear();
-                        errors.clear();
-                        return Err(error.into());
-                    }
-                };
+                let error = f.apply(&xi);
 
                 if error < error_best {
                     error_best = error;
@@ -267,18 +249,18 @@ impl<F: Function> NelderMead<F> {
                 simplex.push(xi);
             }
 
-            let inf_error_count = errors.iter().filter(|e| **e == inf).count();
+            let error_count = errors.iter().filter(|e| !e.is_finite()).count();
 
-            if inf_error_count >= simplex.len() / 2 {
+            if error_count >= simplex.len() / 2 {
                 // The simplex is too degenerate.
                 debug!(
                     "{} out of {} points in simplex have invalid value, returning error",
-                    inf_error_count,
+                    error_count,
                     simplex.len()
                 );
                 simplex.clear();
                 errors.clear();
-                return Err(NelderMeadError::Problem(ProblemError::InvalidValue));
+                return Err(NelderMeadError::SimplexInvalid);
             }
 
             sort_perm.extend(0..=n);
@@ -324,7 +306,7 @@ impl<F: Function> NelderMead<F> {
         // Perform one of possible simplex transformations.
         reflection.on_line2_mut(centroid, &simplex[sort_perm[n]], reflection_coeff);
         let reflection_not_feasible = dom.project(reflection);
-        let reflection_error = f.apply(reflection).ignore_invalid_value(inf)?;
+        let reflection_error = f.apply(reflection).nan_to_inf();
 
         #[allow(clippy::suspicious_else_formatting)]
         let (transformation, not_feasible) = if errors[sort_perm[0]] <= reflection_error
@@ -340,7 +322,7 @@ impl<F: Function> NelderMead<F> {
             // farther along this direction.
             expansion.on_line2_mut(centroid, &simplex[sort_perm[n]], expansion_coeff);
             let expansion_not_feasible = dom.project(expansion);
-            let expansion_error = f.apply(expansion).ignore_invalid_value(inf)?;
+            let expansion_error = f.apply(expansion).nan_to_inf();
 
             if expansion_error < reflection_error {
                 // Expansion indeed helped, replace the worst point.
@@ -365,7 +347,7 @@ impl<F: Function> NelderMead<F> {
                 // Try to perform outer contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], outer_contraction_coeff);
                 let contraction_not_feasible = dom.project(contraction);
-                let contraction_error = f.apply(contraction).ignore_invalid_value(inf)?;
+                let contraction_error = f.apply(contraction).nan_to_inf();
 
                 if contraction_error <= reflection_error {
                     // Use the contracted point instead of the reflected point
@@ -383,7 +365,7 @@ impl<F: Function> NelderMead<F> {
                 // Try to perform inner contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], inner_contraction_coeff);
                 let contraction_not_feasible = dom.project(contraction);
-                let contraction_error = f.apply(contraction).ignore_invalid_value(inf)?;
+                let contraction_error = f.apply(contraction).nan_to_inf();
 
                 if contraction_error <= errors[sort_perm[n]] {
                     // The contracted point is better than the worst point.
@@ -410,7 +392,7 @@ impl<F: Function> NelderMead<F> {
                     for i in 1..=n {
                         let xi = &mut simplex[sort_perm[i]];
                         xi.on_line_mut(contraction, shrink_coeff);
-                        let error = f.apply(xi).ignore_invalid_value(inf)?;
+                        let error = f.apply(xi).nan_to_inf();
                         errors[sort_perm[i]] = error;
 
                         if error < error_best {
@@ -505,7 +487,7 @@ impl<F: System + Function> Solver<F> for NelderMead<F> {
         Sfx: StorageMut<F::Scalar, Dynamic>,
     {
         self.next_inner(f, dom, x)?;
-        f.eval(x, fx)?;
+        f.eval(x, fx);
         Ok(())
     }
 }
@@ -545,6 +527,21 @@ where
         to.sub_to(from, self);
         *self *= t;
         *self += from;
+    }
+}
+
+trait RealFieldNelderMeadExt {
+    fn nan_to_inf(self) -> Self;
+}
+
+impl<T: RealField> RealFieldNelderMeadExt for T {
+    fn nan_to_inf(self) -> Self {
+        if self.is_finite() {
+            self
+        } else {
+            // Not finite also covers NaN and negative infinity.
+            T::from_subset(&f64::INFINITY)
+        }
     }
 }
 

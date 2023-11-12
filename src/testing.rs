@@ -29,7 +29,7 @@ use nalgebra::{
 };
 use thiserror::Error;
 
-use crate::core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System};
+use crate::core::{Domain, Function, Optimizer, Problem, Solver, System};
 
 /// Extension of the [`System`] trait that provides additional information that
 /// is useful for testing solvers.
@@ -59,11 +59,8 @@ where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
         let mut fx = x.clone_owned();
-        if self.eval(x, &mut fx).is_ok() {
-            fx.norm() <= eps
-        } else {
-            false
-        }
+        self.eval(x, &mut fx);
+        fx.norm() <= eps
     }
 }
 
@@ -173,15 +170,14 @@ impl System for ExtendedRosenbrock {
         &self,
         x: &Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         eval(self.residuals(x), fx)
     }
 
-    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
@@ -284,15 +280,14 @@ impl System for ExtendedPowell {
         &self,
         x: &Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         eval(self.residuals(x), fx)
     }
 
-    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
@@ -372,15 +367,14 @@ impl System for BullardBiegler {
         &self,
         x: &Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         eval(self.residuals(x), fx)
     }
 
-    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
@@ -452,15 +446,14 @@ impl System for Sphere {
         &self,
         x: &Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         eval(self.residuals(x), fx)
     }
 
-    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
@@ -494,7 +487,7 @@ impl TestFunction for Sphere {
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
-        self.apply(x).map(|fx| fx.abs() <= eps).unwrap_or(false)
+        self.apply(x).abs() <= eps
     }
 }
 
@@ -557,15 +550,14 @@ impl System for Brown {
         &self,
         x: &Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         eval(self.residuals(x), fx)
     }
 
-    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
@@ -636,15 +628,14 @@ impl System for Exponential {
         &self,
         x: &Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         eval(self.residuals(x), fx)
     }
 
-    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
@@ -694,20 +685,18 @@ impl System for InfiniteSolutions {
         &self,
         _x: &Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
         fx.fill(0.0);
-        Ok(())
     }
 
-    fn norm<Sx>(&self, _: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    fn norm<Sx>(&self, _: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
-        Ok(0.0)
+        0.0
     }
 }
 
@@ -817,17 +806,13 @@ where
     Ok(())
 }
 
-fn eval<Sfx>(
-    residuals: impl Iterator<Item = f64>,
-    fx: &mut Vector<f64, Dynamic, Sfx>,
-) -> Result<(), ProblemError>
+fn eval<Sfx>(residuals: impl Iterator<Item = f64>, fx: &mut Vector<f64, Dynamic, Sfx>)
 where
     Sfx: StorageMut<f64, Dynamic>,
 {
     fx.iter_mut().zip(residuals).for_each(|(fxi, v)| *fxi = v);
-    Ok(())
 }
 
-fn norm(residuals: impl Iterator<Item = f64>) -> Result<f64, ProblemError> {
-    Ok(residuals.map(|v| v.powi(2)).sum::<f64>().sqrt())
+fn norm(residuals: impl Iterator<Item = f64>) -> f64 {
+    residuals.map(|v| v.powi(2)).sum::<f64>().sqrt()
 }

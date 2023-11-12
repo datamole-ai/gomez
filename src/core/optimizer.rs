@@ -42,7 +42,7 @@ use super::{domain::Domain, function::Function};
 ///     Standard: Distribution<F::Scalar>,
 /// {
 ///     const NAME: &'static str = "Random";
-///     type Error = ProblemError;
+///     type Error = std::convert::Infallible;
 ///
 ///     fn next<Sx>(
 ///         &mut self,
@@ -57,8 +57,7 @@ use super::{domain::Domain, function::Function};
 ///         dom.sample(x, &mut self.rng);
 ///
 ///         // We must compute the value.
-///         let value = f.apply(x)?;
-///         Ok(value)
+///         Ok(f.apply(x))
 ///     }
 /// }
 /// ```
@@ -67,9 +66,7 @@ pub trait Optimizer<F: Function> {
     const NAME: &'static str;
 
     /// Error type of the iteration. Represents an invalid operation during
-    /// computing the next step. It is usual that one of the error kinds is
-    /// propagation of the [`ProblemError`](super::ProblemError) from the
-    /// function.
+    /// computing the next step.
     type Error;
 
     /// Computes the next step in the optimization process.

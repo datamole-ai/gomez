@@ -1,9 +1,6 @@
 use nalgebra::{storage::Storage, Dynamic, IsContiguous, Vector};
 
-use super::{
-    base::{Problem, ProblemError},
-    system::System,
-};
+use super::{base::Problem, system::System};
 
 /// The trait for defining functions.
 ///
@@ -37,50 +34,27 @@ use super::{
 ///
 /// impl Function for Rosenbrock {
 ///     // Apply trial values of variables to the function.
-///     fn apply<Sx>(
-///         &self,
-///         x: &na::Vector<Self::Scalar, Dynamic, Sx>,
-///     ) -> Result<Self::Scalar, ProblemError>
+///     fn apply<Sx>(&self, x: &na::Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
 ///     where
 ///         Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
 ///     {
 ///         // Compute the function value.
-///         Ok((self.a - x[0]).powi(2) + self.b * (x[1] - x[0].powi(2)).powi(2))
+///         (self.a - x[0]).powi(2) + self.b * (x[1] - x[0].powi(2)).powi(2)
 ///     }
 /// }
 /// ```
 pub trait Function: Problem {
     /// Calculate the function value given values of the variables.
-    fn apply<Sx>(
-        &self,
-        x: &Vector<Self::Scalar, Dynamic, Sx>,
-    ) -> Result<Self::Scalar, ProblemError>
+    fn apply<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous;
-}
-
-/// Extension trait for `Result<F::Scalar, Error>`.
-pub trait FunctionResultExt<T> {
-    /// If the result is [`ProblemError::InvalidValue`], `Ok(default)` is
-    /// returned instead. The original result is returned otherwise.
-    fn ignore_invalid_value(self, replace_with: T) -> Self;
-}
-
-impl<T> FunctionResultExt<T> for Result<T, ProblemError> {
-    fn ignore_invalid_value(self, replace_with: T) -> Self {
-        match self {
-            Ok(value) => Ok(value),
-            Err(ProblemError::InvalidValue) => Ok(replace_with),
-            Err(error) => Err(error),
-        }
-    }
 }
 
 impl<F> Function for F
 where
     F: System,
 {
-    fn apply<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    fn apply<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {

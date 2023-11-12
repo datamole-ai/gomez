@@ -37,10 +37,8 @@ use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System},
-    derivatives::{
-        Gradient, GradientError, Hessian, HessianError, Jacobian, JacobianError, EPSILON_SQRT,
-    },
+    core::{Domain, Function, Optimizer, Problem, Solver, System},
+    derivatives::{Gradient, Hessian, Jacobian, EPSILON_SQRT},
 };
 
 /// Specification for initial value of trust region size.
@@ -192,18 +190,6 @@ impl<F: Problem> TrustRegion<F> {
 /// Error returned from [`TrustRegion`] solver.
 #[derive(Debug, Error)]
 pub enum TrustRegionError {
-    /// Error that occurred when evaluating the system.
-    #[error("{0}")]
-    Problem(#[from] ProblemError),
-    /// Error that occurred when computing the Jacobian matrix.
-    #[error("{0}")]
-    Jacobian(#[from] JacobianError),
-    /// Error that occurred when computing the gradient vector.
-    #[error("{0}")]
-    Gradient(#[from] GradientError),
-    /// Error that occurred when computing the Hessian matrix.
-    #[error("{0}")]
-    Hessian(#[from] HessianError),
     /// Could not take any valid step.
     #[error("neither newton nor steepest descent step can be taken from the point")]
     NoValidStep,
@@ -273,8 +259,8 @@ impl<F: System> Solver<F> for TrustRegion<F> {
         }
 
         // Compute F(x) and F'(x).
-        f.eval(x, fx)?;
-        jac.compute(f, x, scale, fx)?;
+        f.eval(x, fx);
+        jac.compute(f, x, scale, fx);
 
         let fx_norm = fx.norm();
 
@@ -580,7 +566,8 @@ impl<F: System> Solver<F> for TrustRegion<F> {
         }
 
         // Compute F(x').
-        let is_trial_valid = f.eval(x_trial, fx_trial).is_ok();
+        f.eval(x_trial, fx_trial);
+        let is_trial_valid = fx_trial.iter().all(|fxi| fxi.is_finite());
         let fx_trial_norm = fx_trial.norm();
 
         let gain_ratio = if is_trial_valid {
@@ -747,9 +734,9 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
         }
 
         // Compute f(x), grad f(x) and H(x).
-        let mut fx = f.apply(x)?;
-        grad.compute(f, x, scale, fx)?;
-        hes.compute(f, x, scale, fx)?;
+        let mut fx = f.apply(x);
+        grad.compute(f, x, scale, fx);
+        hes.compute(f, x, scale, fx);
 
         let estimate_delta = *delta == F::Scalar::zero();
         if estimate_delta {
@@ -950,10 +937,8 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
         }
 
         // Compute f(x').
-        let (fx_trial, is_trial_valid) = match f.apply(x_trial) {
-            Ok(fx_trial) => (fx_trial, true),
-            Err(_) => (F::Scalar::zero(), false),
-        };
+        let fx_trial = f.apply(x_trial);
+        let is_trial_valid = fx_trial.is_finite();
 
         let gain_ratio = if is_trial_valid {
             // Compute the gain ratio.

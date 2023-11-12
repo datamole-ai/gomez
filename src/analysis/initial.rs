@@ -12,23 +12,11 @@ use std::marker::PhantomData;
 use nalgebra::{
     convert, storage::StorageMut, ComplexField, DimName, Dynamic, IsContiguous, OVector, Vector, U1,
 };
-use thiserror::Error;
 
 use crate::{
-    core::{Domain, Problem, ProblemError, System},
-    derivatives::{Jacobian, JacobianError, EPSILON_SQRT},
+    core::{Domain, Problem, System},
+    derivatives::{Jacobian, EPSILON_SQRT},
 };
-
-/// Error returned from [`InitialGuessAnalysis`] solver.
-#[derive(Debug, Error)]
-pub enum InitialGuessAnalysisError {
-    /// Error that occurred when evaluating the system.
-    #[error("{0}")]
-    System(#[from] ProblemError),
-    /// Error that occurred when computing the Jacobian matrix.
-    #[error("{0}")]
-    Jacobian(#[from] JacobianError),
-}
 
 /// Initial guesses analyzer. See [module](self) documentation for more details.
 pub struct InitialGuessAnalysis<F: Problem> {
@@ -43,7 +31,7 @@ impl<F: System> InitialGuessAnalysis<F> {
         dom: &Domain<F::Scalar>,
         x: &mut Vector<F::Scalar, Dynamic, Sx>,
         fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
-    ) -> Result<Self, InitialGuessAnalysisError>
+    ) -> Self
     where
         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<F::Scalar, Dynamic>,
@@ -55,8 +43,8 @@ impl<F: System> InitialGuessAnalysis<F> {
             .unwrap_or_else(|| OVector::from_element_generic(dim, U1::name(), convert(1.0)));
 
         // Compute F'(x) in the initial point.
-        f.eval(x, fx)?;
-        let jac1 = Jacobian::new(f, x, &scale, fx)?;
+        f.eval(x, fx);
+        let jac1 = Jacobian::new(f, x, &scale, fx);
 
         // Compute Newton step.
         let mut p = fx.clone_owned();
@@ -70,8 +58,8 @@ impl<F: System> InitialGuessAnalysis<F> {
         *x += p;
 
         // Compute F'(x) after one Newton step.
-        f.eval(x, fx)?;
-        let jac2 = Jacobian::new(f, x, &scale, fx)?;
+        f.eval(x, fx);
+        let jac2 = Jacobian::new(f, x, &scale, fx);
 
         // Linear variables have no effect on the Jacobian matrix. They can be
         // recognized by observing no change in corresponding columns (i.e.,
@@ -92,10 +80,10 @@ impl<F: System> InitialGuessAnalysis<F> {
             .map(|(col, _)| col)
             .collect();
 
-        Ok(Self {
+        Self {
             nonlinear,
             ty: PhantomData,
-        })
+        }
     }
 
     /// Returns indices of variables that have influence on the Jacobian matrix
