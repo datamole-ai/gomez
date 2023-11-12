@@ -5,7 +5,7 @@ use super::{domain::Domain, function::Function};
 /// Common interface for all optimizers.
 ///
 /// All optimizers implement a common interface defined by the [`Optimizer`]
-/// trait. The essential method is [`next`](Optimizer::next) which takes
+/// trait. The essential method is [`opt_next`](Optimizer::opt_next) which takes
 /// variables *x* and computes the next step. Thus it represents one iteration
 /// in the process. Repeated call to this method should move *x* towards the
 /// minimum in successful cases.
@@ -44,7 +44,7 @@ use super::{domain::Domain, function::Function};
 ///     const NAME: &'static str = "Random";
 ///     type Error = std::convert::Infallible;
 ///
-///     fn next<Sx>(
+///     fn opt_next<Sx>(
 ///         &mut self,
 ///         f: &F,
 ///         dom: &Domain<F::Scalar>,
@@ -82,7 +82,7 @@ pub trait Optimizer<F: Function> {
     /// The implementations *can* assume that subsequent calls to `next` pass
     /// the value of `x` as was outputted in the previous iteration by the same
     /// method.
-    fn next<Sx>(
+    fn opt_next<Sx>(
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,

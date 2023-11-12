@@ -737,7 +737,7 @@ where
     let mut iter = 0;
 
     loop {
-        solver.next(f, dom, &mut x, &mut fx)?;
+        solver.solve_next(f, dom, &mut x, &mut fx)?;
 
         if fx.norm() <= tolerance {
             return Ok(x);
@@ -767,7 +767,7 @@ where
     let mut iter = 0;
 
     loop {
-        let fx = optimizer.next(f, dom, &mut x)?;
+        let fx = optimizer.opt_next(f, dom, &mut x)?;
 
         if fx <= min + tolerance {
             // Converged.
@@ -799,7 +799,7 @@ where
     let mut fx = x.clone_owned();
 
     for iter in 0..iters {
-        solver.next(f, dom, &mut x, &mut fx)?;
+        solver.solve_next(f, dom, &mut x, &mut fx)?;
         inspect(&solver, &x, fx.norm(), iter);
     }
 

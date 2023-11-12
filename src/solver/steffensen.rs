@@ -84,7 +84,7 @@ impl<F: System> Solver<F> for Steffensen<F> {
 
     type Error = SteffensenError;
 
-    fn next<Sx, Sfx>(
+    fn solve_next<Sx, Sfx>(
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,

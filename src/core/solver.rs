@@ -5,10 +5,10 @@ use super::{domain::Domain, system::System};
 /// Common interface for all solvers.
 ///
 /// All solvers implement a common interface defined by the [`Solver`] trait.
-/// The essential method is [`next`](Solver::next) which takes variables *x* and
-/// computes the next step. Thus it represents one iteration in the process.
-/// Repeated call to this method should converge *x* to the solution in
-/// successful cases.
+/// The essential method is [`solve_next`](Solver::solve_next) which takes
+/// variables *x* and computes the next step. Thus it represents one iteration
+/// in the process. Repeated call to this method should converge *x* to the
+/// solution in successful cases.
 ///
 /// If you implement a solver, please consider make it a contribution to this
 /// library.
@@ -44,7 +44,7 @@ use super::{domain::Domain, system::System};
 ///     const NAME: &'static str = "Random";
 ///     type Error = std::convert::Infallible;
 ///
-///     fn next<Sx, Sfx>(
+///     fn solve_next<Sx, Sfx>(
 ///         &mut self,
 ///         f: &F,
 ///         dom: &Domain<F::Scalar>,
@@ -86,7 +86,7 @@ pub trait Solver<F: System> {
     /// The implementations *can* assume that subsequent calls to `next` pass
     /// the value of `x` as was outputted in the previous iteration by the same
     /// method.
-    fn next<Sx, Sfx>(
+    fn solve_next<Sx, Sfx>(
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
