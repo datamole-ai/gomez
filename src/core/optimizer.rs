@@ -38,8 +38,8 @@ use super::{domain::Domain, function::Function};
 ///
 /// impl<F: Function, R: Rng> Optimizer<F> for Random<R>
 /// where
-///     F::Scalar: SampleUniform,
-///     Standard: Distribution<F::Scalar>,
+///     F::Field: SampleUniform,
+///     Standard: Distribution<F::Field>,
 /// {
 ///     const NAME: &'static str = "Random";
 ///     type Error = std::convert::Infallible;
@@ -47,11 +47,11 @@ use super::{domain::Domain, function::Function};
 ///     fn opt_next<Sx>(
 ///         &mut self,
 ///         f: &F,
-///         dom: &Domain<F::Scalar>,
-///         x: &mut Vector<F::Scalar, Dynamic, Sx>,
-///     ) -> Result<F::Scalar, Self::Error>
+///         dom: &Domain<F::Field>,
+///         x: &mut Vector<F::Field, Dynamic, Sx>,
+///     ) -> Result<F::Field, Self::Error>
 ///     where
-///         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+///         Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
 ///     {
 ///         // Randomly sample in the domain.
 ///         dom.sample(x, &mut self.rng);
@@ -85,9 +85,9 @@ pub trait Optimizer<F: Function> {
     fn opt_next<Sx>(
         &mut self,
         f: &F,
-        dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-    ) -> Result<F::Scalar, Self::Error>
+        dom: &Domain<F::Field>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+    ) -> Result<F::Field, Self::Error>
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous;
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous;
 }

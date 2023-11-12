@@ -39,7 +39,7 @@ pub struct SteffensenOptions<F: Problem> {
     /// [`SteffensenVariant`]).
     variant: SteffensenVariant,
     #[getset(skip)]
-    _phantom: PhantomData<F::Scalar>,
+    _phantom: PhantomData<F::Field>,
 }
 
 impl<F: Problem> Default for SteffensenOptions<F> {
@@ -58,12 +58,12 @@ pub struct Steffensen<F: Problem> {
 
 impl<F: Problem> Steffensen<F> {
     /// Initializes Steffensen solver with default options.
-    pub fn new(f: &F, dom: &Domain<F::Scalar>) -> Self {
+    pub fn new(f: &F, dom: &Domain<F::Field>) -> Self {
         Self::with_options(f, dom, SteffensenOptions::default())
     }
 
     /// Initializes Steffensen solver with given options.
-    pub fn with_options(_f: &F, _dom: &Domain<F::Scalar>, options: SteffensenOptions<F>) -> Self {
+    pub fn with_options(_f: &F, _dom: &Domain<F::Field>, options: SteffensenOptions<F>) -> Self {
         Self { options }
     }
 
@@ -87,13 +87,13 @@ impl<F: System> Solver<F> for Steffensen<F> {
     fn solve_next<Sx, Sfx>(
         &mut self,
         f: &F,
-        dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
+        dom: &Domain<F::Field>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        fx: &mut Vector<F::Field, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sfx: StorageMut<F::Scalar, Dynamic>,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sfx: StorageMut<F::Field, Dynamic>,
     {
         if dom.dim() != 1 {
             return Err(SteffensenError::InvalidDimensionality);
