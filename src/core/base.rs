@@ -51,7 +51,11 @@ pub trait Sample {
 
 impl Sample for f32 {
     fn sample_any(rng: &mut Rng) -> Self {
-        rng.f32()
+        // Sampling from the whole range is likely not desired. Choosing
+        // sqrt(MAX) as an arbitrary bound.
+        let max = f32::MAX.sqrt();
+        let min = -max;
+        rng.f32_range(min..=max)
     }
 
     fn sample_uniform(lower: Self, upper: Self, rng: &mut Rng) -> Self {
@@ -65,7 +69,11 @@ impl Sample for f32 {
 
 impl Sample for f64 {
     fn sample_any(rng: &mut Rng) -> Self {
-        rng.f64()
+        // Sampling from the whole range is likely not desired. Choosing
+        // cbrt(MAX) as an arbitrary bound.
+        let max = f64::MAX.cbrt();
+        let min = -max;
+        rng.f64_range(min..=max)
     }
 
     fn sample_uniform(lower: Self, upper: Self, rng: &mut Rng) -> Self {
