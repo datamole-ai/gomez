@@ -7,4 +7,4 @@ license = "GPL-3.0+"
 edition = "2021"
 
 [build-dependencies]
-bindgen = "0.57"
+bindgen = "0.69.1"
