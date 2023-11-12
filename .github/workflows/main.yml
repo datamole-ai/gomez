@@ -10,7 +10,7 @@ jobs:
     name: Conventional commits
     runs-on: ubuntu-latest
     env:
-      COMMITLINT_CONFIG: .commitlintrc.json
+      COMMITLINT_CONFIG: commitlint.config.js
     steps:
       - uses: actions/checkout@v3
         with:
