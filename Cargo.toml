@@ -11,6 +11,9 @@ keywords = ["nonlinear-equations", "optimization", "math", "science"]
 categories = ["science", "mathematics"]
 edition = "2021"
 
+[features]
+testing = []
+
 [dependencies]
 nalgebra = "0.31"
 rand = { version = "0.8", features = ["small_rng"] }
