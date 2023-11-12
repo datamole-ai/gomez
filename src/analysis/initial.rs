@@ -55,8 +55,10 @@ where
         Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
         Sfx: StorageMut<F::Scalar, F::Dim>,
     {
-        let scale_iter = dom.vars().iter().map(|var| var.scale());
-        let scale = OVector::from_iterator_generic(f.dim(), U1::name(), scale_iter);
+        let scale = dom
+            .scale()
+            .map(|scale| OVector::from_iterator_generic(f.dim(), U1::name(), scale.iter().copied()))
+            .unwrap_or_else(|| OVector::from_element_generic(f.dim(), U1::name(), convert(1.0)));
 
         // Compute F'(x) in the initial point.
         f.eval(x, fx)?;

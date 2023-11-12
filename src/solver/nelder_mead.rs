@@ -33,10 +33,7 @@ use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
-    core::{
-        Domain, Function, FunctionResultExt, Optimizer, Problem, ProblemError, Solver, System,
-        VectorDomainExt,
-    },
+    core::{Domain, Function, FunctionResultExt, Optimizer, Problem, ProblemError, Solver, System},
     derivatives::EPSILON_SQRT,
 };
 
@@ -164,13 +161,16 @@ where
     pub fn with_options(f: &F, dom: &Domain<F::Scalar>, mut options: NelderMeadOptions<F>) -> Self {
         options.overwrite_coeffs(f);
 
-        let scale_iter = dom.vars().iter().map(|var| var.scale());
+        let scale = dom
+            .scale()
+            .map(|scale| OVector::from_iterator_generic(f.dim(), U1::name(), scale.iter().copied()))
+            .unwrap_or_else(|| OVector::from_element_generic(f.dim(), U1::name(), convert(1.0)));
 
         Self {
             options,
             fx: OVector::zeros_generic(f.dim(), U1::name()),
             fx_best: OVector::zeros_generic(f.dim(), U1::name()),
-            scale: OVector::from_iterator_generic(f.dim(), U1::name(), scale_iter),
+            scale,
             centroid: OVector::zeros_generic(f.dim(), U1::name()),
             reflection: OVector::zeros_generic(f.dim(), U1::name()),
             expansion: OVector::zeros_generic(f.dim(), U1::name()),
@@ -252,7 +252,8 @@ where
 
             for j in 0..n {
                 let mut xi = x.clone_owned();
-                xi[j] = dom.vars()[j].clamp(xi[j] + scale[j]);
+                xi[j] += scale[j];
+                dom.project_in(&mut xi, j);
 
                 let error = match f.apply_eval(&xi, fx) {
                     Ok(error) => error,
@@ -338,7 +339,7 @@ where
 
         // Perform one of possible simplex transformations.
         reflection.on_line2_mut(centroid, &simplex[sort_perm[n]], reflection_coeff);
-        let reflection_not_feasible = reflection.project(dom);
+        let reflection_not_feasible = dom.project(reflection);
         let reflection_error = f.apply_eval(reflection, fx).ignore_invalid_value(inf)?;
 
         #[allow(clippy::suspicious_else_formatting)]
@@ -356,7 +357,7 @@ where
             // Reflected point is better than the current best. Try to go
             // farther along this direction.
             expansion.on_line2_mut(centroid, &simplex[sort_perm[n]], expansion_coeff);
-            let expansion_not_feasible = expansion.project(dom);
+            let expansion_not_feasible = dom.project(expansion);
             let expansion_error = f.apply_eval(expansion, fx).ignore_invalid_value(inf)?;
 
             if expansion_error < reflection_error {
@@ -383,7 +384,7 @@ where
             {
                 // Try to perform outer contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], outer_contraction_coeff);
-                let contraction_not_feasible = contraction.project(dom);
+                let contraction_not_feasible = dom.project(contraction);
                 let contraction_error = f.apply_eval(contraction, fx).ignore_invalid_value(inf)?;
 
                 if contraction_error <= reflection_error {
@@ -405,7 +406,7 @@ where
             } else {
                 // Try to perform inner contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], inner_contraction_coeff);
-                let contraction_not_feasible = contraction.project(dom);
+                let contraction_not_feasible = dom.project(contraction);
                 let contraction_error = f.apply_eval(contraction, fx).ignore_invalid_value(inf)?;
 
                 if contraction_error <= errors[sort_perm[n]] {

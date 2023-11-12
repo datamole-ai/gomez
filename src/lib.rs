@@ -140,7 +140,7 @@
 //!     // ...
 //!
 //!     fn domain(&self) -> Domain<Self::Scalar> {
-//!         vec![var!(-10.0, 10.0), var!(-10.0, 10.0)].into()
+//!         [(-10.0, 10.0), (-10.0, 10.0)].into_iter().collect()
 //!     }
 //! }
 //! ```
@@ -264,8 +264,5 @@ pub use nalgebra;
 
 /// Gomez prelude.
 pub mod prelude {
-    pub use crate::{
-        core::{Domain, Problem, ProblemError, Solver, System, Variable, VariableBuilder},
-        var,
-    };
+    pub use crate::core::{Domain, Problem, ProblemError, Solver, System};
 }

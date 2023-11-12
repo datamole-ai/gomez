@@ -18,7 +18,7 @@ use getset::{CopyGetters, Setters};
 use nalgebra::{storage::StorageMut, Dim, IsContiguous, Vector};
 use thiserror::Error;
 
-use crate::core::{Domain, Problem, ProblemError, Solver, System, VectorDomainExt};
+use crate::core::{Domain, Problem, ProblemError, Solver, System};
 
 /// Variant of the Steffenen's method.
 #[derive(Debug, Clone, Copy)]
@@ -150,7 +150,7 @@ impl<F: System> Solver<F> for Steffensen<F> {
             }
         }
 
-        x.project(dom);
+        dom.project(x);
 
         Ok(())
     }

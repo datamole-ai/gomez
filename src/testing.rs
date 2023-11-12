@@ -30,10 +30,7 @@ use nalgebra::{
 };
 use thiserror::Error;
 
-use crate::{
-    core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System},
-    var,
-};
+use crate::core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System};
 
 /// Extension of the [`System`] trait that provides additional information that
 /// is useful for testing solvers.
@@ -159,7 +156,6 @@ impl Problem for ExtendedRosenbrock {
                     1.0 / self.alpha
                 }
             })
-            .map(|m| var!(m))
             .collect()
     }
 }
@@ -344,7 +340,7 @@ impl Problem for BullardBiegler {
     }
 
     fn domain(&self) -> Domain<Self::Scalar> {
-        vec![var!(5.45e-6, 4.553), var!(2.196e-3, 18.21)].into()
+        [(5.45e-6, 4.553), (2.196e-3, 18.21)].into_iter().collect()
     }
 }
 

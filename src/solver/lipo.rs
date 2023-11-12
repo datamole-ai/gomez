@@ -13,11 +13,11 @@ use getset::{CopyGetters, Setters};
 use log::{debug, trace};
 use nalgebra::{
     allocator::Allocator, convert, try_convert, ComplexField, DefaultAllocator, Dim, DimName,
-    IsContiguous, OVector, RealField, StorageMut, Vector, U1,
+    IsContiguous, OVector, StorageMut, Vector, U1,
 };
 use num_traits::{One, Zero};
 use rand::Rng;
-use rand_distr::{uniform::SampleUniform, Bernoulli, Distribution, Standard, Uniform};
+use rand_distr::{uniform::SampleUniform, Bernoulli, Distribution, Standard};
 use thiserror::Error;
 
 use crate::core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System};
@@ -267,7 +267,7 @@ where
             local_optimizer.reset();
             debug!("number of evaluated points = {}", xs.len());
 
-            sample_uniform::<F, _, _>(x, dom, rng);
+            dom.sample(x, rng);
 
             // Generate a few random points in the beginning of the optimization to
             // make the estimation of lower bound sensible.
@@ -318,14 +318,14 @@ where
                                 // Backup the valid point and continue sampling to
                                 // try to find a better one.
                                 x_tmp.copy_from(x);
-                                sample_uniform::<F, _, _>(x, dom, rng);
+                                dom.sample(x, rng);
                                 tmp_best = bound;
                                 continue;
                             }
                         }
                     } else {
                         trace!("unsuitable point, sample new");
-                        sample_uniform::<F, _, _>(x, dom, rng);
+                        dom.sample(x, rng);
                     }
                 }
 
@@ -434,32 +434,6 @@ where
         f.eval(x, fx)?;
         Ok(())
     }
-}
-
-fn sample_uniform<F: Problem, Sx, R: Rng>(
-    x: &mut Vector<F::Scalar, F::Dim, Sx>,
-    dom: &Domain<F::Scalar>,
-    rng: &mut R,
-) where
-    Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-    F::Scalar: SampleUniform,
-    Standard: Distribution<F::Scalar>,
-{
-    x.iter_mut().zip(dom.vars().iter()).for_each(|(xi, vi)| {
-        *xi = if !vi.lower().is_finite() || !vi.upper().is_finite() {
-            let random: F::Scalar = rng.gen();
-
-            if vi.lower().is_finite() || vi.upper().is_finite() {
-                let clamped = random.max(vi.lower()).min(vi.upper());
-                let delta = clamped - random;
-                clamped + delta
-            } else {
-                random
-            }
-        } else {
-            Uniform::new_inclusive(vi.lower(), vi.upper()).sample(rng)
-        };
-    });
 }
 
 #[cfg(test)]

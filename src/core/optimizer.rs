@@ -24,7 +24,7 @@ use super::{domain::Domain, function::Function};
 /// use gomez::core::*;
 /// use na::{storage::StorageMut, IsContiguous, Vector};
 /// use rand::Rng;
-/// use rand_distr::{uniform::SampleUniform, Distribution, Uniform};
+/// use rand_distr::{uniform::SampleUniform, Distribution, Standard};
 ///
 /// struct Random<R> {
 ///     rng: R,
@@ -39,6 +39,7 @@ use super::{domain::Domain, function::Function};
 /// impl<F: Function, R: Rng> Optimizer<F> for Random<R>
 /// where
 ///     F::Scalar: SampleUniform,
+///     Standard: Distribution<F::Scalar>,
 /// {
 ///     const NAME: &'static str = "Random";
 ///     type Error = ProblemError;
@@ -52,10 +53,8 @@ use super::{domain::Domain, function::Function};
 ///     where
 ///         Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
 ///     {
-///         // Randomly sample within the bounds.
-///         x.iter_mut().zip(dom.vars().iter()).for_each(|(xi, vi)| {
-///             *xi = Uniform::new_inclusive(vi.lower(), vi.upper()).sample(&mut self.rng)
-///         });
+///         // Randomly sample in the domain.
+///         dom.sample(x, &mut self.rng);
 ///
 ///         // We must compute the value.
 ///         let value = f.apply(x)?;
