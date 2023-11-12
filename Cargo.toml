@@ -20,11 +20,3 @@ num-traits = "0.2"
 thiserror = "1"
 log = "0.4"
 getset = "0.1"
-
-[dev-dependencies]
-criterion = "0.3"
-gsl-wrapper = { path = "gsl-wrapper" }
-
-[[bench]]
-name = "solvers"
-harness = false

@@ -1,0 +1,13 @@
+[package]
+name = "gomez-bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+divan = "0.1.2"
+gomez = { path = ".." }
+gsl-wrapper = { path = "../gsl-wrapper" }
+
+[[bench]]
+name = "main"
+harness = false
