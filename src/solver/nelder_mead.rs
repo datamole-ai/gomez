@@ -31,10 +31,7 @@ use nalgebra::{
 use num_traits::{One, Zero};
 use thiserror::Error;
 
-use crate::{
-    core::{Domain, Function, Optimizer, Problem, Solver, System},
-    derivatives::EPSILON_SQRT,
-};
+use crate::core::{Domain, Function, Optimizer, Problem, RealField as _, Solver, System};
 
 /// Family of coefficients for reflection, expansion and contractions.
 #[derive(Debug, Clone, Copy)]
@@ -435,7 +432,7 @@ impl<F: Function> NelderMead<F> {
             // otherwise an error reduction was achieved. This criterion is
             // taken from "Less is more: Simplified Nelder-Mead method for large
             // unconstrained optimization".
-            let eps: F::Field = convert(EPSILON_SQRT);
+            let eps = F::Field::EPSILON_SQRT;
 
             let worst = errors[sort_perm[n]];
             let best = errors[sort_perm[0]];

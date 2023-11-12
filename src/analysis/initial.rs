@@ -14,8 +14,8 @@ use nalgebra::{
 };
 
 use crate::{
-    core::{Domain, Problem, System},
-    derivatives::{Jacobian, EPSILON_SQRT},
+    core::{Domain, Problem, RealField, System},
+    derivatives::Jacobian,
 };
 
 /// Initial guesses analyzer. See [module](self) documentation for more details.
@@ -75,7 +75,7 @@ impl<F: System> InitialGuessAnalysis<F> {
             .filter(|(_, (c1, c2))| {
                 c1.iter()
                     .zip(c2.iter())
-                    .any(|(a, b)| (*a - *b).abs() > convert(EPSILON_SQRT))
+                    .any(|(a, b)| (*a - *b).abs() > F::Field::EPSILON_SQRT)
             })
             .map(|(col, _)| col)
             .collect();

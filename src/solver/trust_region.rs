@@ -37,8 +37,8 @@ use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Function, Optimizer, Problem, Solver, System},
-    derivatives::{Gradient, Hessian, Jacobian, EPSILON_SQRT},
+    core::{Domain, Function, Optimizer, Problem, RealField as _, Solver, System},
+    derivatives::{Gradient, Hessian, Jacobian},
 };
 
 /// Specification for initial value of trust region size.
@@ -102,7 +102,7 @@ impl<F: Problem> TrustRegionOptions<F> {
 impl<F: Problem> Default for TrustRegionOptions<F> {
     fn default() -> Self {
         Self {
-            delta_min: convert(EPSILON_SQRT),
+            delta_min: F::Field::EPSILON_SQRT,
             delta_max: convert(1e9),
             delta_init: DeltaInit::Estimated,
             mu_min: convert(1e-10),
