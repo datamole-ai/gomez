@@ -64,12 +64,12 @@
 //! incorporating them and the implementation of appropriate solvers.
 //!
 //! When it comes to code, the problem is any type that implements the
-//! [`System`](core::System) and [`Problem`](core::Problem) traits.
+//! [`System`] and [`Problem`] traits.
 //!
 //! ```rust
 //! // Gomez is based on `nalgebra` crate.
 //! use gomez::nalgebra as na;
-//! use gomez::prelude::*;
+//! use gomez::{Domain, Problem, System};
 //! use na::{Dynamic, IsContiguous};
 //!
 //! // A problem is represented by a type.
@@ -117,7 +117,7 @@
 //!
 //! ```rust
 //! # use gomez::nalgebra as na;
-//! # use gomez::prelude::*;
+//! # use gomez::*;
 //! #
 //! # struct Rosenbrock {
 //! #     a: f64,
@@ -146,9 +146,10 @@
 //!
 //! ```rust
 //! use gomez::nalgebra as na;
-//! use gomez::prelude::*;
+//! use gomez::Solver;
 //! // Pick your solver.
 //! use gomez::solver::TrustRegion;
+//! # use gomez::{Domain, Problem, System};
 //! # use na::{Dynamic, IsContiguous};
 //! #
 //! # struct Rosenbrock {
@@ -234,9 +235,11 @@
 //! Licensed under MIT.
 
 pub mod analysis;
-pub mod core;
+mod core;
 pub mod derivatives;
 pub mod solver;
+
+pub use core::*;
 
 #[cfg(feature = "testing")]
 pub mod testing;
@@ -245,8 +248,3 @@ pub mod testing;
 pub(crate) mod testing;
 
 pub use nalgebra;
-
-/// Gomez prelude.
-pub mod prelude {
-    pub use crate::core::{Domain, Problem, Solver, System};
-}

@@ -5,9 +5,9 @@ fn main() {
 use gomez::{
     nalgebra as na,
     nalgebra::Dynamic,
-    prelude::*,
     solver::{NelderMead, TrustRegion},
     testing::*,
+    Domain, Problem, Solver,
 };
 use gsl_wrapper::{
     function::Function as GslFunction,

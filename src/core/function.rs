@@ -11,9 +11,8 @@ use super::{base::Problem, system::System};
 /// ([`apply`](Function::apply)).
 ///
 /// ```rust
-/// use gomez::core::Function;
 /// use gomez::nalgebra as na;
-/// use gomez::prelude::*;
+/// use gomez::{Domain, Function, Problem};
 /// use na::{Dynamic, IsContiguous};
 ///
 /// // A problem is represented by a type.
