@@ -2,12 +2,12 @@
 
 use std::iter::FromIterator;
 
+use fastrand::Rng;
 use na::{Dim, DimName};
 use nalgebra as na;
 use nalgebra::{storage::StorageMut, OVector, RealField, Vector};
-use rand::Rng;
-use rand_distr::uniform::SampleUniform;
-use rand_distr::{Distribution, Standard, Uniform};
+
+use crate::core::Sample;
 
 fn estimate_magnitude<T: RealField + Copy>(lower: T, upper: T) -> T {
     let ten = T::from_subset(&10.0);
@@ -154,18 +154,17 @@ impl<T: RealField + Copy> Domain<T> {
     }
 
     /// Samples a point in the domain.
-    pub fn sample<D, Sx, R: Rng>(&self, x: &mut Vector<T, D, Sx>, rng: &mut R)
+    pub fn sample<D, Sx>(&self, x: &mut Vector<T, D, Sx>, rng: &mut Rng)
     where
         D: Dim,
         Sx: StorageMut<T, D> + na::IsContiguous,
-        T: SampleUniform,
-        Standard: Distribution<T>,
+        T: Sample,
     {
         x.iter_mut()
             .zip(self.lower.iter().copied().zip(self.upper.iter().copied()))
             .for_each(|(xi, (li, ui))| {
                 *xi = if !li.is_finite() || !ui.is_finite() {
-                    let random: T = rng.gen();
+                    let random = T::sample_any(rng);
 
                     if li.is_finite() || ui.is_finite() {
                         let clamped = random.max(li).min(ui);
@@ -175,7 +174,7 @@ impl<T: RealField + Copy> Domain<T> {
                         random
                     }
                 } else {
-                    Uniform::new_inclusive(li, ui).sample(rng)
+                    T::sample_uniform(li, ui, rng)
                 };
             });
     }

@@ -9,6 +9,7 @@
 //! \[2\] [A Global Optimization Algorithm Worth
 //! Using](http://blog.dlib.net/2017/12/a-global-optimization-algorithm-worth.html)
 
+use fastrand::Rng;
 use getset::{CopyGetters, Setters};
 use log::{debug, trace};
 use nalgebra::{
@@ -16,11 +17,9 @@ use nalgebra::{
     Vector, U1,
 };
 use num_traits::{One, Zero};
-use rand::Rng;
-use rand_distr::{uniform::SampleUniform, Bernoulli, Distribution, Standard};
 use thiserror::Error;
 
-use crate::core::{Domain, Function, Optimizer, Problem, Solver, System};
+use crate::core::{Domain, Function, Optimizer, Problem, Sample, Solver, System};
 
 use super::NelderMead;
 
@@ -75,7 +74,7 @@ impl<F: Problem> Default for LipoOptions<F> {
 }
 
 /// LIPO solver. See [module](self) documentation for more details.
-pub struct Lipo<F: Problem, R> {
+pub struct Lipo<F: Problem> {
     options: LipoOptions<F>,
     alpha: F::Field,
     xs: Vec<OVector<F::Field, Dynamic>>,
@@ -83,22 +82,22 @@ pub struct Lipo<F: Problem, R> {
     best: usize,
     k: F::Field,
     k_inf: F::Field,
-    rng: R,
-    bernoulli: Bernoulli,
+    rng: Rng,
+    p_explore: f64,
     tmp: OVector<F::Field, Dynamic>,
     x_tmp: OVector<F::Field, Dynamic>,
     local_optimizer: NelderMead<F>,
     iter: usize,
 }
 
-impl<F: Problem, R: Rng> Lipo<F, R> {
+impl<F: Problem> Lipo<F> {
     /// Initializes LIPO solver with default options.
-    pub fn new(f: &F, dom: &Domain<F::Field>, rng: R) -> Self {
+    pub fn new(f: &F, dom: &Domain<F::Field>, rng: Rng) -> Self {
         Self::with_options(f, dom, LipoOptions::default(), rng)
     }
 
     /// Initializes LIPO solver with given options.
-    pub fn with_options(f: &F, dom: &Domain<F::Field>, options: LipoOptions<F>, rng: R) -> Self {
+    pub fn with_options(f: &F, dom: &Domain<F::Field>, options: LipoOptions<F>, rng: Rng) -> Self {
         let dim = Dynamic::new(dom.dim());
 
         let p_explore = options.p_explore.clamp(0.0, 1.0);
@@ -117,7 +116,7 @@ impl<F: Problem, R: Rng> Lipo<F, R> {
             k: F::Field::zero(),
             k_inf: F::Field::zero(),
             rng,
-            bernoulli: Bernoulli::new(p_explore).unwrap(),
+            p_explore,
             tmp: OVector::zeros_generic(dim, U1::name()),
             x_tmp: OVector::zeros_generic(dim, U1::name()),
             local_optimizer: NelderMead::new(f, dom),
@@ -209,10 +208,9 @@ pub enum LipoError {
     InfiniteLipschitzConstant,
 }
 
-impl<F: Function, R: Rng> Lipo<F, R>
+impl<F: Function> Lipo<F>
 where
-    F::Field: SampleUniform,
-    Standard: Distribution<F::Field>,
+    F::Field: Sample,
 {
     fn next_inner<Sx>(
         &mut self,
@@ -236,7 +234,7 @@ where
             best,
             k,
             rng,
-            bernoulli,
+            p_explore,
             tmp,
             x_tmp,
             local_optimizer,
@@ -268,7 +266,7 @@ where
             // Exploitation mode is allowed only when there is enough points
             // evaluated and the Lipschitz constant is estimated. Then there is
             // randomness involved in choosing whether we explore or exploit.
-            if !initialization && *k != F::Field::zero() && !bernoulli.sample(rng) {
+            if !initialization && *k != F::Field::zero() && rng.f64() >= *p_explore {
                 debug!("exploitation mode");
 
                 let mut tmp_best = ys[*best];
@@ -378,10 +376,9 @@ where
     }
 }
 
-impl<F: Function, R: Rng> Optimizer<F> for Lipo<F, R>
+impl<F: Function> Optimizer<F> for Lipo<F>
 where
-    F::Field: SampleUniform,
-    Standard: Distribution<F::Field>,
+    F::Field: Sample,
 {
     const NAME: &'static str = "LIPO";
 
@@ -400,10 +397,9 @@ where
     }
 }
 
-impl<F: System, R: Rng> Solver<F> for Lipo<F, R>
+impl<F: System> Solver<F> for Lipo<F>
 where
-    F::Field: SampleUniform,
-    Standard: Distribution<F::Field>,
+    F::Field: Sample,
 {
     const NAME: &'static str = "LIPO";
 
@@ -428,8 +424,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::{rngs::SmallRng, SeedableRng};
-
     use super::*;
 
     use crate::testing::*;
@@ -441,7 +435,7 @@ mod tests {
         let f = Sphere::new(n);
         let dom = f.domain();
         let eps = convert(1e-3);
-        let rng = SmallRng::from_seed([3; 32]);
+        let rng = Rng::with_seed(3);
         let mut options = LipoOptions::default();
         options
             .set_local_optimization_iters(0)
