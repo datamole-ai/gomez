@@ -23,11 +23,9 @@
 use std::error::Error as StdError;
 
 use nalgebra::{
-    allocator::Allocator,
     dvector,
     storage::{Storage, StorageMut},
-    vector, DVector, DefaultAllocator, Dim, DimName, Dynamic, IsContiguous, OVector, Vector, U1,
-    U2,
+    DVector, Dim, DimName, Dynamic, IsContiguous, OVector, Vector, U1,
 };
 use thiserror::Error;
 
@@ -127,6 +125,25 @@ impl ExtendedRosenbrock {
         assert!(alpha > 0.0, "alpha must be greater than zero");
         Self { n, alpha }
     }
+
+    fn residuals<'a, Sx>(&self, x: &'a Vector<f64, Dynamic, Sx>) -> impl Iterator<Item = f64> + 'a
+    where
+        Sx: Storage<f64, Dynamic> + IsContiguous,
+    {
+        let alpha = self.alpha;
+        (0..(self.n / 2)).flat_map(move |i| {
+            let i1 = 2 * i;
+            let i2 = 2 * i + 1;
+
+            let x1 = x[i1] * alpha;
+            let x2 = x[i2] / alpha;
+
+            let fx1 = 10.0 * (x2 - x1 * x1);
+            let fx2 = 1.0 - x1;
+
+            [fx1, fx2].into_iter()
+        })
+    }
 }
 
 impl Default for ExtendedRosenbrock {
@@ -161,18 +178,14 @@ impl System for ExtendedRosenbrock {
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
-        for i in 0..(self.n / 2) {
-            let i1 = 2 * i;
-            let i2 = 2 * i + 1;
+        eval(self.residuals(x), fx)
+    }
 
-            let x1 = x[i1] * self.alpha;
-            let x2 = x[i2] / self.alpha;
-
-            fx[i1] = 10.0 * (x2 - x1 * x1);
-            fx[i2] = 1.0 - x1;
-        }
-
-        Ok(())
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+    {
+        norm(self.residuals(x))
     }
 }
 
@@ -231,6 +244,25 @@ impl ExtendedPowell {
         assert!(n % 4 == 0, "n must be a multiple of 4");
         Self { n }
     }
+
+    fn residuals<'a, Sx>(&self, x: &'a Vector<f64, Dynamic, Sx>) -> impl Iterator<Item = f64> + 'a
+    where
+        Sx: Storage<f64, Dynamic> + IsContiguous,
+    {
+        (0..(self.n / 4)).flat_map(move |i| {
+            let i1 = 4 * i;
+            let i2 = 4 * i + 1;
+            let i3 = 4 * i + 2;
+            let i4 = 4 * i + 3;
+
+            let fx1 = x[i1] + 10.0 * x[i2];
+            let fx2 = 5f64.sqrt() * (x[i3] - x[i4]);
+            let fx3 = (x[i2] - 2.0 * x[i3]).powi(2);
+            let fx4 = 10f64.sqrt() * (x[i1] - x[i4]).powi(2);
+
+            [fx1, fx2, fx3, fx4].into_iter()
+        })
+    }
 }
 
 impl Default for ExtendedPowell {
@@ -257,19 +289,14 @@ impl System for ExtendedPowell {
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
-        for i in 0..(self.n / 4) {
-            let i1 = 4 * i;
-            let i2 = 4 * i + 1;
-            let i3 = 4 * i + 2;
-            let i4 = 4 * i + 3;
+        eval(self.residuals(x), fx)
+    }
 
-            fx[i1] = x[i1] + 10.0 * x[i2];
-            fx[i2] = 5f64.sqrt() * (x[i3] - x[i4]);
-            fx[i3] = (x[i2] - 2.0 * x[i3]).powi(2);
-            fx[i4] = 10f64.sqrt() * (x[i1] - x[i4]).powi(2);
-        }
-
-        Ok(())
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+    {
+        norm(self.residuals(x))
     }
 }
 
@@ -313,6 +340,17 @@ impl BullardBiegler {
     pub fn new() -> Self {
         Self(())
     }
+
+    fn residuals<'a, Sx>(&self, x: &'a Vector<f64, Dynamic, Sx>) -> impl Iterator<Item = f64> + 'a
+    where
+        Sx: Storage<f64, Dynamic> + IsContiguous,
+    {
+        [
+            1e4 * x[0] * x[1] - 1.0,
+            (-x[0]).exp() + (-x[1]).exp() - 1.001,
+        ]
+        .into_iter()
+    }
 }
 
 impl Default for BullardBiegler {
@@ -339,10 +377,14 @@ impl System for BullardBiegler {
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
-        fx[0] = 1e4 * x[0] * x[1] - 1.0;
-        fx[1] = (-x[0]).exp() + (-x[1]).exp() - 1.001;
+        eval(self.residuals(x), fx)
+    }
 
-        Ok(())
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+    {
+        norm(self.residuals(x))
     }
 }
 
@@ -382,6 +424,13 @@ impl Sphere {
         assert!(n > 0, "n must be greater than zero");
         Self { n }
     }
+
+    fn residuals<'a, Sx>(&self, x: &'a Vector<f64, Dynamic, Sx>) -> impl Iterator<Item = f64> + 'a
+    where
+        Sx: Storage<f64, Dynamic> + IsContiguous,
+    {
+        x.iter().map(|xi| xi.powi(2))
+    }
 }
 
 impl Default for Sphere {
@@ -408,11 +457,14 @@ impl System for Sphere {
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
-        for i in 0..self.n {
-            fx[i] = x[i].powi(2);
-        }
+        eval(self.residuals(x), fx)
+    }
 
-        Ok(())
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+    {
+        norm(self.residuals(x))
     }
 }
 
@@ -467,6 +519,23 @@ impl Brown {
         assert!(n > 1, "n must be greater than one");
         Self { n }
     }
+
+    fn residuals<'a, Sx>(&self, x: &'a Vector<f64, Dynamic, Sx>) -> impl Iterator<Item = f64> + 'a
+    where
+        Sx: Storage<f64, Dynamic> + IsContiguous,
+    {
+        let n = self.n as f64;
+        let x_sum = x.sum();
+
+        let fx0 = x.iter().product::<f64>() - 1.0;
+        let fxs = x
+            .iter()
+            .skip(1)
+            .copied()
+            .map(move |xi| xi + x_sum - n + 1.0);
+
+        std::iter::once(fx0).chain(fxs)
+    }
 }
 
 impl Default for Brown {
@@ -493,13 +562,14 @@ impl System for Brown {
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
-        fx[0] = x.iter().product::<f64>() - 1.0;
+        eval(self.residuals(x), fx)
+    }
 
-        for i in 1..self.n {
-            fx[i] = x[i] + x.sum() - (self.n as f64 + 1.0);
-        }
-
-        Ok(())
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+    {
+        norm(self.residuals(x))
     }
 }
 
@@ -533,6 +603,18 @@ impl Exponential {
         assert!(n > 0, "n must be greater than zero");
         Self { n }
     }
+
+    fn residuals<'a, Sx>(&self, x: &'a Vector<f64, Dynamic, Sx>) -> impl Iterator<Item = f64> + 'a
+    where
+        Sx: Storage<f64, Dynamic> + IsContiguous,
+    {
+        let x_sum = x.sum();
+
+        x.iter()
+            .copied()
+            .enumerate()
+            .map(move |(i, xi)| xi - (((i + 1) as f64) * x_sum).cos().exp())
+    }
 }
 
 impl Default for Exponential {
@@ -559,11 +641,14 @@ impl System for Exponential {
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
-        for i in 0..self.n {
-            fx[i] = x[i] - (((i + 1) as f64) * x.sum()).cos().exp();
-        }
+        eval(self.residuals(x), fx)
+    }
 
-        Ok(())
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+    {
+        norm(self.residuals(x))
     }
 }
 
@@ -614,11 +699,15 @@ impl System for InfiniteSolutions {
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {
-        for i in 0..self.n {
-            fx[i] = 0.0;
-        }
-
+        fx.fill(0.0);
         Ok(())
+    }
+
+    fn norm<Sx>(&self, _: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+    {
+        Ok(0.0)
     }
 }
 
@@ -726,4 +815,19 @@ where
     }
 
     Ok(())
+}
+
+fn eval<Sfx>(
+    residuals: impl Iterator<Item = f64>,
+    fx: &mut Vector<f64, Dynamic, Sfx>,
+) -> Result<(), ProblemError>
+where
+    Sfx: StorageMut<f64, Dynamic>,
+{
+    fx.iter_mut().zip(residuals).for_each(|(fxi, v)| *fxi = v);
+    Ok(())
+}
+
+fn norm(residuals: impl Iterator<Item = f64>) -> Result<f64, ProblemError> {
+    Ok(residuals.map(|v| v.powi(2)).sum::<f64>().sqrt())
 }

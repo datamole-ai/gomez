@@ -67,6 +67,20 @@ pub trait System: Problem {
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>;
+
+    /// Calculate the residuals vector norm.
+    ///
+    /// The default implementation allocates a temporary vector for the
+    /// residuals on every call. If you plan to solve the system by an
+    /// optimizer, consider overriding the default implementation.
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+    {
+        let mut fx = x.clone_owned();
+        self.eval(x, &mut fx)?;
+        Ok(fx.norm())
+    }
 }
 
 /// A wrapper type for systems that implements a standard mechanism for
