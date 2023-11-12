@@ -52,7 +52,7 @@ pub struct LipoOptions<F: Problem> {
     p_explore: f64,
     /// Alpha parameter for (1 + alpha)^i meshgrid for Lipschitz constant
     /// estimation.
-    alpha: AlphaInit<F::Scalar>,
+    alpha: AlphaInit<F::Field>,
     /// Number of sampling trials. If no potential minimizer is found after this
     /// number of trials, the solver returns error.
     sampling_trials: usize,
@@ -77,28 +77,28 @@ impl<F: Problem> Default for LipoOptions<F> {
 /// LIPO solver. See [module](self) documentation for more details.
 pub struct Lipo<F: Problem, R> {
     options: LipoOptions<F>,
-    alpha: F::Scalar,
-    xs: Vec<OVector<F::Scalar, Dynamic>>,
-    ys: Vec<F::Scalar>,
+    alpha: F::Field,
+    xs: Vec<OVector<F::Field, Dynamic>>,
+    ys: Vec<F::Field>,
     best: usize,
-    k: F::Scalar,
-    k_inf: F::Scalar,
+    k: F::Field,
+    k_inf: F::Field,
     rng: R,
     bernoulli: Bernoulli,
-    tmp: OVector<F::Scalar, Dynamic>,
-    x_tmp: OVector<F::Scalar, Dynamic>,
+    tmp: OVector<F::Field, Dynamic>,
+    x_tmp: OVector<F::Field, Dynamic>,
     local_optimizer: NelderMead<F>,
     iter: usize,
 }
 
 impl<F: Problem, R: Rng> Lipo<F, R> {
     /// Initializes LIPO solver with default options.
-    pub fn new(f: &F, dom: &Domain<F::Scalar>, rng: R) -> Self {
+    pub fn new(f: &F, dom: &Domain<F::Field>, rng: R) -> Self {
         Self::with_options(f, dom, LipoOptions::default(), rng)
     }
 
     /// Initializes LIPO solver with given options.
-    pub fn with_options(f: &F, dom: &Domain<F::Scalar>, options: LipoOptions<F>, rng: R) -> Self {
+    pub fn with_options(f: &F, dom: &Domain<F::Field>, options: LipoOptions<F>, rng: R) -> Self {
         let dim = Dynamic::new(dom.dim());
 
         let p_explore = options.p_explore.clamp(0.0, 1.0);
@@ -114,8 +114,8 @@ impl<F: Problem, R: Rng> Lipo<F, R> {
             xs: Vec::new(),
             ys: Vec::new(),
             best: 0,
-            k: F::Scalar::zero(),
-            k_inf: F::Scalar::zero(),
+            k: F::Field::zero(),
+            k_inf: F::Field::zero(),
             rng,
             bernoulli: Bernoulli::new(p_explore).unwrap(),
             tmp: OVector::zeros_generic(dim, U1::name()),
@@ -130,8 +130,8 @@ impl<F: Problem, R: Rng> Lipo<F, R> {
         self.xs.clear();
         self.ys.clear();
         self.best = 0;
-        self.k = F::Scalar::zero();
-        self.k_inf = F::Scalar::zero();
+        self.k = F::Field::zero();
+        self.k_inf = F::Field::zero();
         self.iter = 0;
     }
 
@@ -142,8 +142,8 @@ impl<F: Problem, R: Rng> Lipo<F, R> {
     /// the LIPO solver gives extra information for free.
     pub fn add_evaluation(
         &mut self,
-        x: OVector<F::Scalar, Dynamic>,
-        y: F::Scalar,
+        x: OVector<F::Field, Dynamic>,
+        y: F::Field,
     ) -> Result<(), LipoError> {
         let alpha = self.alpha;
 
@@ -179,9 +179,9 @@ impl<F: Problem, R: Rng> Lipo<F, R> {
                 debug!("|| x - xi || = {}", dist);
             }
 
-            let it = try_convert(((*k_inf).ln() / (F::Scalar::one() + alpha).ln()).ceil())
+            let it = try_convert(((*k_inf).ln() / (F::Field::one() + alpha).ln()).ceil())
                 .unwrap_or_default() as i32;
-            *k = (F::Scalar::one() + alpha).powi(it);
+            *k = (F::Field::one() + alpha).powi(it);
 
             if !k.is_finite() {
                 return Err(LipoError::InfiniteLipschitzConstant);
@@ -211,17 +211,17 @@ pub enum LipoError {
 
 impl<F: Function, R: Rng> Lipo<F, R>
 where
-    F::Scalar: SampleUniform,
-    Standard: Distribution<F::Scalar>,
+    F::Field: SampleUniform,
+    Standard: Distribution<F::Field>,
 {
     fn next_inner<Sx>(
         &mut self,
         f: &F,
-        dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-    ) -> Result<F::Scalar, LipoError>
+        dom: &Domain<F::Field>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+    ) -> Result<F::Field, LipoError>
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
     {
         let LipoOptions {
             sampling_trials,
@@ -268,7 +268,7 @@ where
             // Exploitation mode is allowed only when there is enough points
             // evaluated and the Lipschitz constant is estimated. Then there is
             // randomness involved in choosing whether we explore or exploit.
-            if !initialization && *k != F::Scalar::zero() && !bernoulli.sample(rng) {
+            if !initialization && *k != F::Field::zero() && !bernoulli.sample(rng) {
                 debug!("exploitation mode");
 
                 let mut tmp_best = ys[*best];
@@ -380,8 +380,8 @@ where
 
 impl<F: Function, R: Rng> Optimizer<F> for Lipo<F, R>
 where
-    F::Scalar: SampleUniform,
-    Standard: Distribution<F::Scalar>,
+    F::Field: SampleUniform,
+    Standard: Distribution<F::Field>,
 {
     const NAME: &'static str = "LIPO";
 
@@ -390,11 +390,11 @@ where
     fn opt_next<Sx>(
         &mut self,
         f: &F,
-        dom: &Domain<<F>::Scalar>,
-        x: &mut Vector<<F>::Scalar, Dynamic, Sx>,
-    ) -> Result<<F>::Scalar, Self::Error>
+        dom: &Domain<<F>::Field>,
+        x: &mut Vector<<F>::Field, Dynamic, Sx>,
+    ) -> Result<<F>::Field, Self::Error>
     where
-        Sx: StorageMut<<F>::Scalar, Dynamic> + IsContiguous,
+        Sx: StorageMut<<F>::Field, Dynamic> + IsContiguous,
     {
         self.next_inner(f, dom, x)
     }
@@ -402,8 +402,8 @@ where
 
 impl<F: System, R: Rng> Solver<F> for Lipo<F, R>
 where
-    F::Scalar: SampleUniform,
-    Standard: Distribution<F::Scalar>,
+    F::Field: SampleUniform,
+    Standard: Distribution<F::Field>,
 {
     const NAME: &'static str = "LIPO";
 
@@ -412,13 +412,13 @@ where
     fn solve_next<Sx, Sfx>(
         &mut self,
         f: &F,
-        dom: &Domain<<F>::Scalar>,
-        x: &mut Vector<<F>::Scalar, Dynamic, Sx>,
-        fx: &mut Vector<<F>::Scalar, Dynamic, Sfx>,
+        dom: &Domain<<F>::Field>,
+        x: &mut Vector<<F>::Field, Dynamic, Sx>,
+        fx: &mut Vector<<F>::Field, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<<F>::Scalar, Dynamic> + IsContiguous,
-        Sfx: StorageMut<<F>::Scalar, Dynamic>,
+        Sx: StorageMut<<F>::Field, Dynamic> + IsContiguous,
+        Sfx: StorageMut<<F>::Field, Dynamic>,
     {
         self.next_inner(f, dom, x)?;
         f.eval(x, fx);

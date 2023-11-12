@@ -61,15 +61,15 @@ pub struct NelderMeadOptions<F: Problem> {
     /// balanced (see [`CoefficientsFamily`]).
     family: CoefficientsFamily,
     /// Coefficient for reflection operation. Default: `-1`.
-    reflection_coeff: F::Scalar,
+    reflection_coeff: F::Field,
     /// Coefficient for expansion operation. Default: `-2`.
-    expansion_coeff: F::Scalar,
+    expansion_coeff: F::Field,
     /// Coefficient for outer contraction operation. Default: `-0.5`.
-    outer_contraction_coeff: F::Scalar,
+    outer_contraction_coeff: F::Field,
     /// Coefficient for inner contraction operation. Default: `0.5`.
-    inner_contraction_coeff: F::Scalar,
+    inner_contraction_coeff: F::Field,
     /// Coefficient for shrinking operation. Default: `0.5`.
-    shrink_coeff: F::Scalar,
+    shrink_coeff: F::Field,
 }
 
 impl<F: Problem> Default for NelderMeadOptions<F> {
@@ -86,7 +86,7 @@ impl<F: Problem> Default for NelderMeadOptions<F> {
 }
 
 impl<F: Problem> NelderMeadOptions<F> {
-    fn overwrite_coeffs(&mut self, dom: &Domain<F::Scalar>) {
+    fn overwrite_coeffs(&mut self, dom: &Domain<F::Field>) {
         let Self {
             family,
             reflection_coeff,
@@ -105,14 +105,14 @@ impl<F: Problem> NelderMeadOptions<F> {
                 *shrink_coeff = convert(0.5);
             }
             CoefficientsFamily::Balanced => {
-                let n: F::Scalar = convert(dom.dim() as f64);
-                let n_inv = F::Scalar::one() / n;
+                let n: F::Field = convert(dom.dim() as f64);
+                let n_inv = F::Field::one() / n;
 
                 *reflection_coeff = convert(-1.0);
                 *expansion_coeff = -(n_inv * convert(2.0) + convert(1.0));
-                *outer_contraction_coeff = -(F::Scalar::one() - n_inv);
+                *outer_contraction_coeff = -(F::Field::one() - n_inv);
                 *inner_contraction_coeff = -*outer_contraction_coeff;
-                *shrink_coeff = F::Scalar::one() - n_inv;
+                *shrink_coeff = F::Field::one() - n_inv;
             }
             CoefficientsFamily::GoldenSection => {
                 let alpha = 1.0 / (0.5 * (5f64.sqrt() + 1.0));
@@ -132,24 +132,24 @@ impl<F: Problem> NelderMeadOptions<F> {
 /// Nelder-Mead solver. See [module](self) documentation for more details.
 pub struct NelderMead<F: Problem> {
     options: NelderMeadOptions<F>,
-    scale: OVector<F::Scalar, Dynamic>,
-    centroid: OVector<F::Scalar, Dynamic>,
-    reflection: OVector<F::Scalar, Dynamic>,
-    expansion: OVector<F::Scalar, Dynamic>,
-    contraction: OVector<F::Scalar, Dynamic>,
-    simplex: Vec<OVector<F::Scalar, Dynamic>>,
-    errors: Vec<F::Scalar>,
+    scale: OVector<F::Field, Dynamic>,
+    centroid: OVector<F::Field, Dynamic>,
+    reflection: OVector<F::Field, Dynamic>,
+    expansion: OVector<F::Field, Dynamic>,
+    contraction: OVector<F::Field, Dynamic>,
+    simplex: Vec<OVector<F::Field, Dynamic>>,
+    errors: Vec<F::Field>,
     sort_perm: Vec<usize>,
 }
 
 impl<F: Problem> NelderMead<F> {
     /// Initializes Nelder-Mead solver with default options.
-    pub fn new(f: &F, dom: &Domain<F::Scalar>) -> Self {
+    pub fn new(f: &F, dom: &Domain<F::Field>) -> Self {
         Self::with_options(f, dom, NelderMeadOptions::default())
     }
 
     /// Initializes Nelder-Mead solver with given options.
-    pub fn with_options(_: &F, dom: &Domain<F::Scalar>, mut options: NelderMeadOptions<F>) -> Self {
+    pub fn with_options(_: &F, dom: &Domain<F::Field>, mut options: NelderMeadOptions<F>) -> Self {
         let dim = Dynamic::new(dom.dim());
 
         options.overwrite_coeffs(dom);
@@ -196,11 +196,11 @@ impl<F: Function> NelderMead<F> {
     fn next_inner<Sx>(
         &mut self,
         f: &F,
-        dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-    ) -> Result<F::Scalar, NelderMeadError>
+        dom: &Domain<F::Field>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+    ) -> Result<F::Field, NelderMeadError>
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
     {
         let NelderMeadOptions {
             reflection_coeff,
@@ -274,7 +274,7 @@ impl<F: Function> NelderMead<F> {
         }
 
         // Calculate the centroid.
-        centroid.fill(F::Scalar::zero());
+        centroid.fill(F::Field::zero());
         (0..n)
             .map(|i| &simplex[sort_perm[i]])
             .for_each(|xi| *centroid += xi);
@@ -435,7 +435,7 @@ impl<F: Function> NelderMead<F> {
             // otherwise an error reduction was achieved. This criterion is
             // taken from "Less is more: Simplified Nelder-Mead method for large
             // unconstrained optimization".
-            let eps: F::Scalar = convert(EPSILON_SQRT);
+            let eps: F::Field = convert(EPSILON_SQRT);
 
             let worst = errors[sort_perm[n]];
             let best = errors[sort_perm[0]];
@@ -460,11 +460,11 @@ impl<F: Function> Optimizer<F> for NelderMead<F> {
     fn opt_next<Sx>(
         &mut self,
         f: &F,
-        dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-    ) -> Result<F::Scalar, Self::Error>
+        dom: &Domain<F::Field>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+    ) -> Result<F::Field, Self::Error>
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
     {
         self.next_inner(f, dom, x)
     }
@@ -478,13 +478,13 @@ impl<F: System + Function> Solver<F> for NelderMead<F> {
     fn solve_next<Sx, Sfx>(
         &mut self,
         f: &F,
-        dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
+        dom: &Domain<F::Field>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        fx: &mut Vector<F::Field, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sfx: StorageMut<F::Scalar, Dynamic>,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sfx: StorageMut<F::Field, Dynamic>,
     {
         self.next_inner(f, dom, x)?;
         f.eval(x, fx);

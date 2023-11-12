@@ -80,11 +80,11 @@
 //!
 //! impl Problem for Rosenbrock {
 //!     // The numeric type. Usually f64 or f32.
-//!     type Scalar = f64;
+//!     type Field = f64;
 //!
 //!     // Specification for the domain. At the very least, the dimension
 //!     // must be known.
-//!     fn domain(&self) -> Domain<Self::Scalar> {
+//!     fn domain(&self) -> Domain<Self::Field> {
 //!         Domain::unconstrained(2)
 //!     }
 //! }
@@ -93,11 +93,11 @@
 //!     // Evaluate trial values of variables to the system.
 //!     fn eval<Sx, Sfx>(
 //!         &self,
-//!         x: &na::Vector<Self::Scalar, Dynamic, Sx>,
-//!         fx: &mut na::Vector<Self::Scalar, Dynamic, Sfx>,
+//!         x: &na::Vector<Self::Field, Dynamic, Sx>,
+//!         fx: &mut na::Vector<Self::Field, Dynamic, Sfx>,
 //!     ) where
-//!         Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
-//!         Sfx: na::storage::StorageMut<Self::Scalar, Dynamic>,
+//!         Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
+//!         Sfx: na::storage::StorageMut<Self::Field, Dynamic>,
 //!     {
 //!         // Compute the residuals of all equations.
 //!         fx[0] = (self.a - x[0]).powi(2);
@@ -125,9 +125,9 @@
 //! # }
 //! #
 //! impl Problem for Rosenbrock {
-//! #     type Scalar = f64;
+//! #     type Field = f64;
 //!
-//!     fn domain(&self) -> Domain<Self::Scalar> {
+//!     fn domain(&self) -> Domain<Self::Field> {
 //!         [(-10.0, 10.0), (-10.0, 10.0)].into_iter().collect()
 //!     }
 //! }
@@ -157,9 +157,9 @@
 //! # }
 //! #
 //! # impl Problem for Rosenbrock {
-//! #     type Scalar = f64;
+//! #     type Field = f64;
 //! #
-//! #     fn domain(&self) -> Domain<Self::Scalar> {
+//! #     fn domain(&self) -> Domain<Self::Field> {
 //! #         Domain::unconstrained(2)
 //! #     }
 //! # }
@@ -167,11 +167,11 @@
 //! # impl System for Rosenbrock {
 //! #     fn eval<Sx, Sfx>(
 //! #         &self,
-//! #         x: &na::Vector<Self::Scalar, Dynamic, Sx>,
-//! #         fx: &mut na::Vector<Self::Scalar, Dynamic, Sfx>,
+//! #         x: &na::Vector<Self::Field, Dynamic, Sx>,
+//! #         fx: &mut na::Vector<Self::Field, Dynamic, Sfx>,
 //! #     ) where
-//! #         Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
-//! #         Sfx: na::storage::StorageMut<Self::Scalar, Dynamic>,
+//! #         Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
+//! #         Sfx: na::storage::StorageMut<Self::Field, Dynamic>,
 //! #     {
 //! #         fx[0] = (self.a - x[0]).powi(2);
 //! #         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);

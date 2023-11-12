@@ -168,7 +168,7 @@ mod bullard_biegler {
 fn bench_solve<F, S, GF, GS>(bencher: divan::Bencher, with_system: GF, with_solver: GS)
 where
     GF: Fn() -> (F, usize),
-    GS: Fn(&F, &Domain<F::Scalar>, &na::OVector<F::Scalar, Dynamic>) -> S,
+    GS: Fn(&F, &Domain<F::Field>, &na::OVector<F::Field, Dynamic>) -> S,
     F: TestSystem,
     S: Solver<F>,
 {
@@ -203,8 +203,8 @@ where
 
 fn with_trust_region<F>(
     f: &F,
-    dom: &Domain<F::Scalar>,
-    _: &na::OVector<F::Scalar, Dynamic>,
+    dom: &Domain<F::Field>,
+    _: &na::OVector<F::Field, Dynamic>,
 ) -> TrustRegion<F>
 where
     F: Problem,
@@ -214,8 +214,8 @@ where
 
 fn with_nelder_mead<F>(
     f: &F,
-    dom: &Domain<F::Scalar>,
-    _: &na::OVector<F::Scalar, Dynamic>,
+    dom: &Domain<F::Field>,
+    _: &na::OVector<F::Field, Dynamic>,
 ) -> NelderMead<F>
 where
     F: Problem,
@@ -225,11 +225,11 @@ where
 
 fn with_gsl_hybrids<F>(
     f: &F,
-    _: &Domain<F::Scalar>,
-    x: &na::OVector<F::Scalar, Dynamic>,
+    _: &Domain<F::Field>,
+    x: &na::OVector<F::Field, Dynamic>,
 ) -> GslSolverWrapper<GslFunctionWrapper<F>>
 where
-    F: TestSystem<Scalar = f64> + Clone,
+    F: TestSystem<Field = f64> + Clone,
 {
     GslSolverWrapper::new(GslFunctionWrapper::new(
         f.clone(),
@@ -248,7 +248,7 @@ impl<F> GslFunctionWrapper<F> {
     }
 }
 
-impl<F: TestSystem<Scalar = f64>> GslFunction for GslFunctionWrapper<F> {
+impl<F: TestSystem<Field = f64>> GslFunction for GslFunctionWrapper<F> {
     fn eval(&self, x: &GslVec, f: &mut GslVec) -> GslStatus {
         use na::DimName;
         let dim = Dynamic::new(x.len());
@@ -285,7 +285,7 @@ impl<F: GslFunction> GslSolverWrapper<F> {
     }
 }
 
-impl<F: TestSystem<Scalar = f64>> Solver<F> for GslSolverWrapper<GslFunctionWrapper<F>> {
+impl<F: TestSystem<Field = f64>> Solver<F> for GslSolverWrapper<GslFunctionWrapper<F>> {
     const NAME: &'static str = "GSL hybrids";
 
     type Error = String;
@@ -293,13 +293,13 @@ impl<F: TestSystem<Scalar = f64>> Solver<F> for GslSolverWrapper<GslFunctionWrap
     fn solve_next<Sx, Sfx>(
         &mut self,
         _f: &F,
-        _dom: &Domain<F::Scalar>,
-        x: &mut na::Vector<F::Scalar, Dynamic, Sx>,
-        fx: &mut na::Vector<F::Scalar, Dynamic, Sfx>,
+        _dom: &Domain<F::Field>,
+        x: &mut na::Vector<F::Field, Dynamic, Sx>,
+        fx: &mut na::Vector<F::Field, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: na::storage::StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sfx: na::storage::StorageMut<F::Scalar, Dynamic>,
+        Sx: na::storage::StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sfx: na::storage::StorageMut<F::Field, Dynamic>,
     {
         let result = self.solver.step().to_result();
         x.copy_from_slice(self.solver.root());

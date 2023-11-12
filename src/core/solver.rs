@@ -38,8 +38,8 @@ use super::{domain::Domain, system::System};
 ///
 /// impl<F: System, R: Rng> Solver<F> for Random<R>
 /// where
-///     F::Scalar: SampleUniform,
-///     Standard: Distribution<F::Scalar>,
+///     F::Field: SampleUniform,
+///     Standard: Distribution<F::Field>,
 /// {
 ///     const NAME: &'static str = "Random";
 ///     type Error = std::convert::Infallible;
@@ -47,13 +47,13 @@ use super::{domain::Domain, system::System};
 ///     fn solve_next<Sx, Sfx>(
 ///         &mut self,
 ///         f: &F,
-///         dom: &Domain<F::Scalar>,
-///         x: &mut Vector<F::Scalar, Dynamic, Sx>,
-///         fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
+///         dom: &Domain<F::Field>,
+///         x: &mut Vector<F::Field, Dynamic, Sx>,
+///         fx: &mut Vector<F::Field, Dynamic, Sfx>,
 ///     ) -> Result<(), Self::Error>
 ///     where
-///         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-///         Sfx: StorageMut<F::Scalar, Dynamic>,
+///         Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+///         Sfx: StorageMut<F::Field, Dynamic>,
 ///     {
 ///         // Randomly sample in the domain.
 ///         dom.sample(x, &mut self.rng);
@@ -89,11 +89,11 @@ pub trait Solver<F: System> {
     fn solve_next<Sx, Sfx>(
         &mut self,
         f: &F,
-        dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
+        dom: &Domain<F::Field>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        fx: &mut Vector<F::Field, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sfx: StorageMut<F::Scalar, Dynamic>;
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sfx: StorageMut<F::Field, Dynamic>;
 }

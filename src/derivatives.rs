@@ -22,7 +22,7 @@ pub const EPSILON_CBRT: f64 = 0.0000060554544523933395;
 /// Jacobian matrix of a system.
 #[derive(Debug)]
 pub struct Jacobian<F: Problem> {
-    jac: OMatrix<F::Scalar, Dynamic, Dynamic>,
+    jac: OMatrix<F::Field, Dynamic, Dynamic>,
 }
 
 impl<F: Problem> Jacobian<F> {
@@ -41,14 +41,14 @@ impl<F: System> Jacobian<F> {
     /// details.
     pub fn new<Sx, Sscale, Sfx>(
         f: &F,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        scale: &Vector<F::Scalar, Dynamic, Sscale>,
-        fx: &Vector<F::Scalar, Dynamic, Sfx>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        scale: &Vector<F::Field, Dynamic, Sscale>,
+        fx: &Vector<F::Field, Dynamic, Sfx>,
     ) -> Self
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Scalar, Dynamic>,
-        Sfx: Storage<F::Scalar, Dynamic>,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Field, Dynamic>,
+        Sfx: Storage<F::Field, Dynamic>,
     {
         let mut jac = Self::zeros(f);
         jac.compute(f, x, scale, fx);
@@ -67,16 +67,16 @@ impl<F: System> Jacobian<F> {
     pub fn compute<Sx, Sscale, Sfx>(
         &mut self,
         f: &F,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        scale: &Vector<F::Scalar, Dynamic, Sscale>,
-        fx: &Vector<F::Scalar, Dynamic, Sfx>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        scale: &Vector<F::Field, Dynamic, Sscale>,
+        fx: &Vector<F::Field, Dynamic, Sfx>,
     ) -> &mut Self
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Scalar, Dynamic>,
-        Sfx: Storage<F::Scalar, Dynamic>,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Field, Dynamic>,
+        Sfx: Storage<F::Field, Dynamic>,
     {
-        let eps: F::Scalar = convert(EPSILON_SQRT);
+        let eps: F::Field = convert(EPSILON_SQRT);
 
         for (j, mut col) in self.jac.column_iter_mut().enumerate() {
             let xj = x[j];
@@ -90,9 +90,9 @@ impl<F: System> Jacobian<F> {
             // A reasonable way to balance these competing needs is to scale
             // each component by x_j itself. To avoid problems when x_j is close
             // to zero, it is modified to take the typical magnitude instead.
-            let magnitude = F::Scalar::one() / scale[j];
-            let step = eps * xj.abs().max(magnitude) * xj.copysign(F::Scalar::one());
-            let step = if step == F::Scalar::zero() { eps } else { step };
+            let magnitude = F::Field::one() / scale[j];
+            let step = eps * xj.abs().max(magnitude) * xj.copysign(F::Field::one());
+            let step = if step == F::Field::zero() { eps } else { step };
 
             // Update the point.
             x[j] = xj + step;
@@ -111,7 +111,7 @@ impl<F: System> Jacobian<F> {
 }
 
 impl<F: Problem> Deref for Jacobian<F> {
-    type Target = OMatrix<F::Scalar, Dynamic, Dynamic>;
+    type Target = OMatrix<F::Field, Dynamic, Dynamic>;
 
     fn deref(&self) -> &Self::Target {
         &self.jac
@@ -121,7 +121,7 @@ impl<F: Problem> Deref for Jacobian<F> {
 /// Gradient vector of a function.
 #[derive(Debug)]
 pub struct Gradient<F: Problem> {
-    grad: OVector<F::Scalar, Dynamic>,
+    grad: OVector<F::Field, Dynamic>,
 }
 
 impl<F: Problem> Gradient<F> {
@@ -140,13 +140,13 @@ impl<F: Function> Gradient<F> {
     /// details.
     pub fn new<Sx, Sscale>(
         f: &F,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        scale: &Vector<F::Scalar, Dynamic, Sscale>,
-        fx: F::Scalar,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        scale: &Vector<F::Field, Dynamic, Sscale>,
+        fx: F::Field,
     ) -> Self
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Scalar, Dynamic>,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Field, Dynamic>,
     {
         let mut grad = Self::zeros(f);
         grad.compute(f, x, scale, fx);
@@ -165,23 +165,23 @@ impl<F: Function> Gradient<F> {
     pub fn compute<Sx, Sscale>(
         &mut self,
         f: &F,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        scale: &Vector<F::Scalar, Dynamic, Sscale>,
-        fx: F::Scalar,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        scale: &Vector<F::Field, Dynamic, Sscale>,
+        fx: F::Field,
     ) -> &mut Self
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Scalar, Dynamic>,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Field, Dynamic>,
     {
-        let eps: F::Scalar = convert(EPSILON_SQRT);
+        let eps: F::Field = convert(EPSILON_SQRT);
 
         for i in 0..x.nrows() {
             let xi = x[i];
 
             // See the implementation of Jacobian for details on computing step size.
-            let magnitude = F::Scalar::one() / scale[i];
-            let step = eps * xi.abs().max(magnitude) * F::Scalar::one().copysign(xi);
-            let step = if step == F::Scalar::zero() { eps } else { step };
+            let magnitude = F::Field::one() / scale[i];
+            let step = eps * xi.abs().max(magnitude) * F::Field::one().copysign(xi);
+            let step = if step == F::Field::zero() { eps } else { step };
 
             // Update the point.
             x[i] = xi + step;
@@ -199,7 +199,7 @@ impl<F: Function> Gradient<F> {
 }
 
 impl<F: Problem> Deref for Gradient<F> {
-    type Target = OVector<F::Scalar, Dynamic>;
+    type Target = OVector<F::Field, Dynamic>;
 
     fn deref(&self) -> &Self::Target {
         &self.grad
@@ -209,9 +209,9 @@ impl<F: Problem> Deref for Gradient<F> {
 /// Hessian matrix of a system.
 #[derive(Debug)]
 pub struct Hessian<F: Problem> {
-    hes: OMatrix<F::Scalar, Dynamic, Dynamic>,
-    steps: OVector<F::Scalar, Dynamic>,
-    neighbors: OVector<F::Scalar, Dynamic>,
+    hes: OMatrix<F::Field, Dynamic, Dynamic>,
+    steps: OVector<F::Field, Dynamic>,
+    neighbors: OVector<F::Field, Dynamic>,
 }
 
 impl<F: Problem> Hessian<F> {
@@ -232,13 +232,13 @@ impl<F: Function> Hessian<F> {
     /// details.
     pub fn new<Sx, Sscale>(
         f: &F,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        scale: &Vector<F::Scalar, Dynamic, Sscale>,
-        fx: F::Scalar,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        scale: &Vector<F::Field, Dynamic, Sscale>,
+        fx: F::Field,
     ) -> Self
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Scalar, Dynamic>,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Field, Dynamic>,
     {
         let mut hes = Self::zeros(f);
         hes.compute(f, x, scale, fx);
@@ -257,23 +257,23 @@ impl<F: Function> Hessian<F> {
     pub fn compute<Sx, Sscale>(
         &mut self,
         f: &F,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        scale: &Vector<F::Scalar, Dynamic, Sscale>,
-        fx: F::Scalar,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        scale: &Vector<F::Field, Dynamic, Sscale>,
+        fx: F::Field,
     ) -> &mut Self
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Scalar, Dynamic>,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sscale: Storage<F::Field, Dynamic>,
     {
-        let eps: F::Scalar = convert(EPSILON_CBRT);
+        let eps: F::Field = convert(EPSILON_CBRT);
 
         for i in 0..x.nrows() {
             let xi = x[i];
 
             // See the implementation of Jacobian for details on computing step size.
-            let magnitude = F::Scalar::one() / scale[i];
-            let step = eps * xi.abs().max(magnitude) * F::Scalar::one().copysign(xi);
-            let step = if step == F::Scalar::zero() { eps } else { step };
+            let magnitude = F::Field::one() / scale[i];
+            let step = eps * xi.abs().max(magnitude) * F::Field::one().copysign(xi);
+            let step = if step == F::Field::zero() { eps } else { step };
 
             // Store the step for Hessian calculation.
             self.steps[i] = step;
@@ -325,7 +325,7 @@ impl<F: Function> Hessian<F> {
 }
 
 impl<F: Problem> Deref for Hessian<F> {
-    type Target = OMatrix<F::Scalar, Dynamic, Dynamic>;
+    type Target = OMatrix<F::Field, Dynamic, Dynamic>;
 
     fn deref(&self) -> &Self::Target {
         &self.hes
@@ -346,17 +346,17 @@ mod tests {
     struct MixedVars;
 
     impl Problem for MixedVars {
-        type Scalar = f64;
+        type Field = f64;
 
-        fn domain(&self) -> Domain<Self::Scalar> {
+        fn domain(&self) -> Domain<Self::Field> {
             Domain::unconstrained(2)
         }
     }
 
     impl Function for MixedVars {
-        fn apply<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
+        fn apply<Sx>(&self, x: &Vector<Self::Field, Dynamic, Sx>) -> Self::Field
         where
-            Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+            Sx: Storage<Self::Field, Dynamic> + IsContiguous,
         {
             // A simple, arbitrary function that produces Hessian matrix with
             // non-zero corners.

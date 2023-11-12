@@ -11,7 +11,7 @@ use super::{base::Problem, domain::Domain};
 /// ## Defining a system
 ///
 /// A system is any type that implements [`System`] and [`Problem`] traits.
-/// There is one required associated type (scalar type) and one required method
+/// There is one required associated type (field type) and one required method
 /// ([`eval`](System::eval)).
 ///
 /// ```rust
@@ -27,10 +27,10 @@ use super::{base::Problem, domain::Domain};
 ///
 /// impl Problem for Rosenbrock {
 ///     // The numeric type. Usually f64 or f32.
-///     type Scalar = f64;
+///     type Field = f64;
 ///
 ///     // The domain of the problem (could be bound-constrained).
-///     fn domain(&self) -> Domain<Self::Scalar> {
+///     fn domain(&self) -> Domain<Self::Field> {
 ///         Domain::unconstrained(2)
 ///     }
 /// }
@@ -39,11 +39,11 @@ use super::{base::Problem, domain::Domain};
 ///     // Evaluate trial values of variables to the system.
 ///     fn eval<Sx, Sfx>(
 ///         &self,
-///         x: &na::Vector<Self::Scalar, Dynamic, Sx>,
-///         fx: &mut na::Vector<Self::Scalar, Dynamic, Sfx>,
+///         x: &na::Vector<Self::Field, Dynamic, Sx>,
+///         fx: &mut na::Vector<Self::Field, Dynamic, Sfx>,
 ///     ) where
-///         Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
-///         Sfx: na::storage::StorageMut<Self::Scalar, Dynamic>,
+///         Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
+///         Sfx: na::storage::StorageMut<Self::Field, Dynamic>,
 ///     {
 ///         // Compute the residuals of all equations.
 ///         fx[0] = (self.a - x[0]).powi(2);
@@ -55,20 +55,20 @@ pub trait System: Problem {
     /// Calculate the residuals of the system given values of the variables.
     fn eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Dynamic, Sx>,
-        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
+        x: &Vector<Self::Field, Dynamic, Sx>,
+        fx: &mut Vector<Self::Field, Dynamic, Sfx>,
     ) where
-        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Dynamic>;
+        Sx: Storage<Self::Field, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Field, Dynamic>;
 
     /// Calculate the residuals vector norm.
     ///
     /// The default implementation allocates a temporary vector for the
     /// residuals on every call. If you plan to solve the system by an
     /// optimizer, consider overriding the default implementation.
-    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
+    fn norm<Sx>(&self, x: &Vector<Self::Field, Dynamic, Sx>) -> Self::Field
     where
-        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+        Sx: Storage<Self::Field, Dynamic> + IsContiguous,
     {
         let mut fx = x.clone_owned();
         self.eval(x, &mut fx);
@@ -90,7 +90,7 @@ pub trait System: Problem {
 /// for example.
 pub struct RepulsiveSystem<'f, F: System> {
     f: &'f F,
-    archive: Vec<OVector<F::Scalar, Dynamic>>,
+    archive: Vec<OVector<F::Field, Dynamic>>,
 }
 
 impl<'f, F: System> RepulsiveSystem<'f, F> {
@@ -103,7 +103,7 @@ impl<'f, F: System> RepulsiveSystem<'f, F> {
     }
 
     /// Add a found solution to the archive.
-    pub fn push(&mut self, root: OVector<F::Scalar, Dynamic>) {
+    pub fn push(&mut self, root: OVector<F::Field, Dynamic>) {
         self.archive.push(root);
     }
 
@@ -118,30 +118,30 @@ impl<'f, F: System> RepulsiveSystem<'f, F> {
     }
 
     /// Unpack the archive which contains all solutions found.
-    pub fn unpack(self) -> Vec<OVector<F::Scalar, Dynamic>> {
+    pub fn unpack(self) -> Vec<OVector<F::Field, Dynamic>> {
         self.archive
     }
 }
 
 impl<'f, F: System> Problem for RepulsiveSystem<'f, F> {
-    type Scalar = F::Scalar;
+    type Field = F::Field;
 
-    fn domain(&self) -> Domain<Self::Scalar> {
+    fn domain(&self) -> Domain<Self::Field> {
         self.f.domain()
     }
 }
 
 impl<'f, F: System> System for RepulsiveSystem<'f, F>
 where
-    DefaultAllocator: Allocator<F::Scalar, Dynamic>,
+    DefaultAllocator: Allocator<F::Field, Dynamic>,
 {
     fn eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Scalar, Dynamic, Sx>,
-        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
+        x: &Vector<Self::Field, Dynamic, Sx>,
+        fx: &mut Vector<Self::Field, Dynamic, Sfx>,
     ) where
-        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Dynamic>,
+        Sx: Storage<Self::Field, Dynamic> + IsContiguous,
+        Sfx: StorageMut<Self::Field, Dynamic>,
     {
         // TODO: RepulsiveSystem should adjust the residuals of the inner system
         // such that solvers tend to go away from the roots stored in the

@@ -28,13 +28,13 @@ impl<F: System> InitialGuessAnalysis<F> {
     /// Analyze the system in given point.
     pub fn analyze<Sx, Sfx>(
         f: &F,
-        dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, Dynamic, Sx>,
-        fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
+        dom: &Domain<F::Field>,
+        x: &mut Vector<F::Field, Dynamic, Sx>,
+        fx: &mut Vector<F::Field, Dynamic, Sfx>,
     ) -> Self
     where
-        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
-        Sfx: StorageMut<F::Scalar, Dynamic>,
+        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sfx: StorageMut<F::Field, Dynamic>,
     {
         let dim = Dynamic::new(dom.dim());
         let scale = dom
@@ -54,7 +54,7 @@ impl<F: System> InitialGuessAnalysis<F> {
         qr.solve_mut(&mut p);
 
         // Do Newton step.
-        p *= convert::<_, F::Scalar>(0.001);
+        p *= convert::<_, F::Field>(0.001);
         *x += p;
 
         // Compute F'(x) after one Newton step.
