@@ -4,10 +4,7 @@ use nalgebra::{
     DefaultAllocator, Dynamic, IsContiguous, OVector, Vector,
 };
 
-use super::{
-    base::{Problem, ProblemError},
-    domain::Domain,
-};
+use super::{base::Problem, domain::Domain};
 
 /// The trait for defining equations systems.
 ///
@@ -44,16 +41,13 @@ use super::{
 ///         &self,
 ///         x: &na::Vector<Self::Scalar, Dynamic, Sx>,
 ///         fx: &mut na::Vector<Self::Scalar, Dynamic, Sfx>,
-///     ) -> Result<(), ProblemError>
-///     where
+///     ) where
 ///         Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
 ///         Sfx: na::storage::StorageMut<Self::Scalar, Dynamic>,
 ///     {
 ///         // Compute the residuals of all equations.
 ///         fx[0] = (self.a - x[0]).powi(2);
 ///         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
-///
-///         Ok(())
 ///     }
 /// }
 /// ```
@@ -63,8 +57,7 @@ pub trait System: Problem {
         &self,
         x: &Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>;
 
@@ -73,13 +66,13 @@ pub trait System: Problem {
     /// The default implementation allocates a temporary vector for the
     /// residuals on every call. If you plan to solve the system by an
     /// optimizer, consider overriding the default implementation.
-    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    fn norm<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
     {
         let mut fx = x.clone_owned();
-        self.eval(x, &mut fx)?;
-        Ok(fx.norm())
+        self.eval(x, &mut fx);
+        fx.norm()
     }
 }
 
@@ -146,8 +139,7 @@ where
         &self,
         x: &Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<Self::Scalar, Dynamic>,
     {

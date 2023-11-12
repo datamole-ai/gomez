@@ -8,9 +8,8 @@ use nalgebra::{
     ComplexField, DimName, Dynamic, IsContiguous, OMatrix, OVector, RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
-use thiserror::Error;
 
-use crate::core::{Function, Problem, ProblemError, System};
+use crate::core::{Function, Problem, System};
 
 /// Square root of double precision machine epsilon. This value is a standard
 /// constant for epsilons in approximating first-order derivate-based concepts.
@@ -19,14 +18,6 @@ pub const EPSILON_SQRT: f64 = 0.000000014901161193847656;
 /// Cubic root of double precision machine epsilon. This value is a standard
 /// constant for epsilons in approximating second-order derivate-based concepts.
 pub const EPSILON_CBRT: f64 = 0.0000060554544523933395;
-
-/// Error when computing the Jacobian matrix.
-#[derive(Debug, Error)]
-pub enum JacobianError {
-    /// Error that occurred when evaluating the system.
-    #[error("{0}")]
-    Problem(#[from] ProblemError),
-}
 
 /// Jacobian matrix of a system.
 #[derive(Debug)]
@@ -53,15 +44,15 @@ impl<F: System> Jacobian<F> {
         x: &mut Vector<F::Scalar, Dynamic, Sx>,
         scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: &Vector<F::Scalar, Dynamic, Sfx>,
-    ) -> Result<Self, JacobianError>
+    ) -> Self
     where
         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
         Sscale: Storage<F::Scalar, Dynamic>,
         Sfx: Storage<F::Scalar, Dynamic>,
     {
         let mut jac = Self::zeros(f);
-        jac.compute(f, x, scale, fx)?;
-        Ok(jac)
+        jac.compute(f, x, scale, fx);
+        jac
     }
 
     /// Compute the Jacobian matrix of the system in given point with given
@@ -79,7 +70,7 @@ impl<F: System> Jacobian<F> {
         x: &mut Vector<F::Scalar, Dynamic, Sx>,
         scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: &Vector<F::Scalar, Dynamic, Sfx>,
-    ) -> Result<&mut Self, JacobianError>
+    ) -> &mut Self
     where
         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
         Sscale: Storage<F::Scalar, Dynamic>,
@@ -105,7 +96,7 @@ impl<F: System> Jacobian<F> {
 
             // Update the point.
             x[j] = xj + step;
-            f.eval(x, &mut col)?;
+            f.eval(x, &mut col);
 
             // Compute the derivative approximation: J[i, j] = (F(x + e_j * step_j) - F(x)) / step_j.
             col -= fx;
@@ -115,7 +106,7 @@ impl<F: System> Jacobian<F> {
             x[j] = xj;
         }
 
-        Ok(self)
+        self
     }
 }
 
@@ -125,14 +116,6 @@ impl<F: Problem> Deref for Jacobian<F> {
     fn deref(&self) -> &Self::Target {
         &self.jac
     }
-}
-
-/// Error when computing the gradient matrix.
-#[derive(Debug, Error)]
-pub enum GradientError {
-    /// Error that occurred when evaluating the function.
-    #[error("{0}")]
-    Problem(#[from] ProblemError),
 }
 
 /// Gradient vector of a function.
@@ -160,14 +143,14 @@ impl<F: Function> Gradient<F> {
         x: &mut Vector<F::Scalar, Dynamic, Sx>,
         scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: F::Scalar,
-    ) -> Result<Self, GradientError>
+    ) -> Self
     where
         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
         Sscale: Storage<F::Scalar, Dynamic>,
     {
         let mut grad = Self::zeros(f);
-        grad.compute(f, x, scale, fx)?;
-        Ok(grad)
+        grad.compute(f, x, scale, fx);
+        grad
     }
 
     /// Compute the gradient vector of the function in given point with given
@@ -185,7 +168,7 @@ impl<F: Function> Gradient<F> {
         x: &mut Vector<F::Scalar, Dynamic, Sx>,
         scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: F::Scalar,
-    ) -> Result<&mut Self, GradientError>
+    ) -> &mut Self
     where
         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
         Sscale: Storage<F::Scalar, Dynamic>,
@@ -202,7 +185,7 @@ impl<F: Function> Gradient<F> {
 
             // Update the point.
             x[i] = xi + step;
-            let fxi = f.apply(x)?;
+            let fxi = f.apply(x);
 
             // Compute the derivative approximation: grad[i] = (F(x + e_i * step_i) - F(x)) / step_i.
             self.grad[i] = (fxi - fx) / step;
@@ -211,7 +194,7 @@ impl<F: Function> Gradient<F> {
             x[i] = xi;
         }
 
-        Ok(self)
+        self
     }
 }
 
@@ -221,14 +204,6 @@ impl<F: Problem> Deref for Gradient<F> {
     fn deref(&self) -> &Self::Target {
         &self.grad
     }
-}
-
-/// Error when computing the Hessian matrix.
-#[derive(Debug, Error)]
-pub enum HessianError {
-    /// Error that occurred when evaluating the system.
-    #[error("{0}")]
-    Problem(#[from] ProblemError),
 }
 
 /// Hessian matrix of a system.
@@ -260,14 +235,14 @@ impl<F: Function> Hessian<F> {
         x: &mut Vector<F::Scalar, Dynamic, Sx>,
         scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: F::Scalar,
-    ) -> Result<Self, HessianError>
+    ) -> Self
     where
         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
         Sscale: Storage<F::Scalar, Dynamic>,
     {
         let mut hes = Self::zeros(f);
-        hes.compute(f, x, scale, fx)?;
-        Ok(hes)
+        hes.compute(f, x, scale, fx);
+        hes
     }
 
     /// Compute the Hessian matrix of the function in given point with given
@@ -285,7 +260,7 @@ impl<F: Function> Hessian<F> {
         x: &mut Vector<F::Scalar, Dynamic, Sx>,
         scale: &Vector<F::Scalar, Dynamic, Sscale>,
         fx: F::Scalar,
-    ) -> Result<&mut Self, HessianError>
+    ) -> &mut Self
     where
         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
         Sscale: Storage<F::Scalar, Dynamic>,
@@ -305,7 +280,7 @@ impl<F: Function> Hessian<F> {
 
             // Update the point and store the function output.
             x[i] = xi + step;
-            let fxi = f.apply(x)?;
+            let fxi = f.apply(x);
             self.neighbors[i] = fxi;
 
             // Restore the original value.
@@ -319,7 +294,7 @@ impl<F: Function> Hessian<F> {
             // Prepare x_i + 2 * e_i.
             x[i] = xi + stepi + stepi;
 
-            let fxi = f.apply(x)?;
+            let fxi = f.apply(x);
             let fni = self.neighbors[i];
 
             x[i] = xi + stepi;
@@ -332,7 +307,7 @@ impl<F: Function> Hessian<F> {
 
                 x[j] = xj + stepj;
 
-                let fxj = f.apply(x)?;
+                let fxj = f.apply(x);
                 let fnj = self.neighbors[j];
 
                 let hij = ((fx - fni) + (fxj - fnj)) / (stepi * stepj);
@@ -345,7 +320,7 @@ impl<F: Function> Hessian<F> {
             x[i] = xi;
         }
 
-        Ok(self)
+        self
     }
 }
 
@@ -379,10 +354,7 @@ mod tests {
     }
 
     impl Function for MixedVars {
-        fn apply<Sx>(
-            &self,
-            x: &Vector<Self::Scalar, Dynamic, Sx>,
-        ) -> Result<Self::Scalar, ProblemError>
+        fn apply<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Self::Scalar
         where
             Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
         {
@@ -391,7 +363,7 @@ mod tests {
             let x1 = x[0];
             let x2 = x[1];
 
-            Ok(x1.powi(2) + x1 * x2 + x2.powi(3))
+            x1.powi(2) + x1 * x2 + x2.powi(3)
         }
     }
 
@@ -402,11 +374,8 @@ mod tests {
         let mut fx = dvector![0.0, 0.0];
 
         let func = ExtendedRosenbrock::new(2);
-        func.eval(&x, &mut fx).unwrap();
+        func.eval(&x, &mut fx);
         let jac = Jacobian::new(&func, &mut x, &scale, &fx);
-
-        assert!(jac.is_ok());
-        let jac = jac.unwrap();
 
         let expected = dmatrix![-40.0, 10.0; -1.0, 0.0];
         assert_abs_diff_eq!(&*jac, &expected, epsilon = 10e-6);
@@ -419,11 +388,8 @@ mod tests {
         let mut fx = dvector![0.0, 0.0, 0.0, 0.0];
 
         let func = ExtendedPowell::new(4);
-        func.eval(&x, &mut fx).unwrap();
+        func.eval(&x, &mut fx);
         let jac = Jacobian::new(&func, &mut x, &scale, &fx);
-
-        assert!(jac.is_ok());
-        let jac = jac.unwrap();
 
         let expected = dmatrix![
             1.0, 10.0, 0.0, 0.0;
@@ -440,11 +406,8 @@ mod tests {
         let scale = dvector![1.0, 1.0];
 
         let func = MixedVars;
-        let fx = func.apply(&x).unwrap();
+        let fx = func.apply(&x);
         let grad = Gradient::new(&func, &mut x, &scale, fx);
-
-        assert!(grad.is_ok());
-        let grad = grad.unwrap();
 
         let expected = dvector![3.0, 30.0];
         assert_abs_diff_eq!(&*grad, &expected, epsilon = 10e-6);
@@ -456,11 +419,8 @@ mod tests {
         let scale = dvector![1.0, 1.0];
 
         let func = MixedVars;
-        let fx = func.apply(&x).unwrap();
+        let fx = func.apply(&x);
         let hes = Hessian::new(&func, &mut x, &scale, fx);
-
-        assert!(hes.is_ok());
-        let hes = hes.unwrap();
 
         let expected = dmatrix![2.0, 1.0; 1.0, -18.0];
         assert_abs_diff_eq!(&*hes, &expected, epsilon = 10e-3);

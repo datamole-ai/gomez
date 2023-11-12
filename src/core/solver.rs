@@ -42,7 +42,7 @@ use super::{domain::Domain, system::System};
 ///     Standard: Distribution<F::Scalar>,
 /// {
 ///     const NAME: &'static str = "Random";
-///     type Error = ProblemError;
+///     type Error = std::convert::Infallible;
 ///
 ///     fn next<Sx, Sfx>(
 ///         &mut self,
@@ -59,7 +59,7 @@ use super::{domain::Domain, system::System};
 ///         dom.sample(x, &mut self.rng);
 ///
 ///         // We must compute the residuals.
-///         f.eval(x, fx)?;
+///         f.eval(x, fx);
 ///
 ///         Ok(())
 ///     }
@@ -70,9 +70,7 @@ pub trait Solver<F: System> {
     const NAME: &'static str;
 
     /// Error type of the iteration. Represents an invalid operation during
-    /// computing the next step. It is usual that one of the error kinds is
-    /// propagation of the [`ProblemError`](super::ProblemError) from the
-    /// system.
+    /// computing the next step.
     type Error;
 
     /// Computes the next step in the solving process.

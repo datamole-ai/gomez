@@ -264,10 +264,8 @@ impl<F: TestSystem<Scalar = f64>> GslFunction for GslFunctionWrapper<F> {
             na::U1::name(),
         );
 
-        match self.f.eval(&x, &mut fx) {
-            Ok(_) => GslStatus::ok(),
-            Err(_) => GslStatus::err(GslError::BadFunc),
-        }
+        self.f.eval(&x, &mut fx);
+        GslStatus::ok()
     }
 
     fn init(&self) -> GslVec {

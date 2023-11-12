@@ -20,7 +20,7 @@ use rand::Rng;
 use rand_distr::{uniform::SampleUniform, Bernoulli, Distribution, Standard};
 use thiserror::Error;
 
-use crate::core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System};
+use crate::core::{Domain, Function, Optimizer, Problem, Solver, System};
 
 use super::NelderMead;
 
@@ -201,9 +201,6 @@ impl<F: Problem, R: Rng> Lipo<F, R> {
 /// Error returned from [`Lipo`] solver.
 #[derive(Debug, Error)]
 pub enum LipoError {
-    /// Error that occurred when evaluating the system.
-    #[error("{0}")]
-    Problem(#[from] ProblemError),
     /// Error when no potential minimizer is found after number sampling trials.
     #[error("potential minimizer was not found after specified number of trials")]
     PotentialMinimizerNotFound,
@@ -250,7 +247,7 @@ where
         if xs.is_empty() {
             debug!("first iteration, just evaluating");
             // First iteration. We just evaluate the initial point and store it.
-            let error = f.apply(x)?;
+            let error = f.apply(x);
 
             xs.push(x.clone_owned());
             ys.push(error);
@@ -355,10 +352,10 @@ where
             // optimization.
             match local_optimizer.next(f, dom, x) {
                 Ok(error) => error,
-                Err(_) => f.apply(x)?,
+                Err(_) => f.apply(x),
             }
         } else {
-            f.apply(x)?
+            f.apply(x)
         };
 
         // New point is better then the current best, so we update it.
@@ -424,7 +421,7 @@ where
         Sfx: StorageMut<<F>::Scalar, Dynamic>,
     {
         self.next_inner(f, dom, x)?;
-        f.eval(x, fx)?;
+        f.eval(x, fx);
         Ok(())
     }
 }

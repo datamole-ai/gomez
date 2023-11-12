@@ -22,15 +22,12 @@ impl System for Rosenbrock {
         &self,
         x: &na::Vector<Self::Scalar, Dynamic, Sx>,
         fx: &mut na::Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<(), ProblemError>
-    where
+    ) where
         Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
         Sfx: na::storage::StorageMut<Self::Scalar, Dynamic>,
     {
         fx[0] = (self.a - x[0]).powi(2);
         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
-
-        Ok(())
     }
 }
 

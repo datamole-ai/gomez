@@ -18,7 +18,7 @@ use getset::{CopyGetters, Setters};
 use nalgebra::{storage::StorageMut, Dynamic, IsContiguous, Vector};
 use thiserror::Error;
 
-use crate::core::{Domain, Problem, ProblemError, Solver, System};
+use crate::core::{Domain, Problem, Solver, System};
 
 /// Variant of the Steffenen's method.
 #[derive(Debug, Clone, Copy)]
@@ -74,9 +74,9 @@ impl<F: Problem> Steffensen<F> {
 /// Error returned from [`Steffensen`] solver.
 #[derive(Debug, Error)]
 pub enum SteffensenError {
-    /// Error that occurred when evaluating the system.
-    #[error("{0}")]
-    Problem(#[from] ProblemError),
+    /// System is not one-dimensional.
+    #[error("system is not one-dimensional")]
+    InvalidDimensionality,
 }
 
 impl<F: System> Solver<F> for Steffensen<F> {
@@ -96,9 +96,7 @@ impl<F: System> Solver<F> for Steffensen<F> {
         Sfx: StorageMut<F::Scalar, Dynamic>,
     {
         if dom.dim() != 1 {
-            return Err(SteffensenError::Problem(
-                ProblemError::InvalidDimensionality,
-            ));
+            return Err(SteffensenError::InvalidDimensionality);
         }
 
         let SteffensenOptions { variant, .. } = self.options;
@@ -106,27 +104,27 @@ impl<F: System> Solver<F> for Steffensen<F> {
         let x0 = x[0];
 
         // Compute f(x).
-        f.eval(x, fx)?;
+        f.eval(x, fx);
         let fx0 = fx[0];
 
         match variant {
             SteffensenVariant::Standard => {
                 // Compute z = f(x + f(x)) and f(z).
                 x[0] += fx0;
-                f.eval(x, fx)?;
+                f.eval(x, fx);
                 let fz0 = fx[0];
 
                 // Compute the next point.
                 x[0] = x0 - (fx0 * fx0) / (fz0 - fx0);
 
                 // Compute f(x).
-                f.eval(x, fx)?;
+                f.eval(x, fx);
             }
             SteffensenVariant::Liu => {
                 // Compute z = f(x + f(x)) and f(z).
                 x[0] += fx0;
                 let z0 = x[0];
-                f.eval(x, fx)?;
+                f.eval(x, fx);
                 let fz0 = fx[0];
 
                 // Compute f[x, z].
@@ -135,7 +133,7 @@ impl<F: System> Solver<F> for Steffensen<F> {
                 // Compute y = x - f(x) / f[x, z] and f(y).
                 x[0] = x0 - fx0 / f_xz;
                 let y0 = x[0];
-                f.eval(x, fx)?;
+                f.eval(x, fx);
                 let fy0 = fx[0];
 
                 // Compute f[x, y] and f[y, z].
@@ -146,7 +144,7 @@ impl<F: System> Solver<F> for Steffensen<F> {
                 x[0] = y0 - (f_xy - f_yz + f_xz) / (f_xy * f_xy) * fy0;
 
                 // Compute f(x).
-                f.eval(x, fx)?;
+                f.eval(x, fx);
             }
         }
 
