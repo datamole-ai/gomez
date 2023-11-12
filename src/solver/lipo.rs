@@ -433,7 +433,10 @@ mod tests {
         let n = 2;
 
         let f = Sphere::new(n);
-        let dom = f.domain();
+        // We are going to run LIPO without any local optimization and "any
+        // potential minimizer" strategy. In such a setting, it would be
+        // impossible for LIPO to find good points in the unconstrained domain.
+        let dom = (0..n).map(|_| (-1.0, 1.0)).collect();
         let eps = convert(1e-3);
         let rng = Rng::with_seed(3);
         let mut options = LipoOptions::default();
@@ -443,7 +446,7 @@ mod tests {
 
         for x in f.initials() {
             let optimizer = Lipo::with_options(&f, &dom, options.clone(), rng.clone());
-            optimize(&f, &dom, optimizer, x, convert(0.0), 250, eps).unwrap();
+            optimize(&f, &dom, optimizer, x, convert(0.0), 1000, eps).unwrap();
         }
     }
 }
