@@ -21,7 +21,7 @@ use super::{domain::Domain, function::Function};
 ///
 /// ```rust
 /// use gomez::nalgebra as na;
-/// use gomez::core::*;
+/// use gomez::*;
 /// use na::{storage::StorageMut, Dynamic, IsContiguous, Vector};
 /// use rand::Rng;
 /// use rand_distr::{uniform::SampleUniform, Distribution, Standard};

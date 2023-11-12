@@ -1,6 +1,6 @@
 use gomez::nalgebra as na;
-use gomez::prelude::*;
 use gomez::solver::TrustRegion;
+use gomez::{Domain, Problem, Solver, System};
 use na::{Dynamic, IsContiguous};
 
 // https://en.wikipedia.org/wiki/Rosenbrock_function

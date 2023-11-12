@@ -16,7 +16,7 @@ use super::{base::Problem, domain::Domain};
 ///
 /// ```rust
 /// use gomez::nalgebra as na;
-/// use gomez::prelude::*;
+/// use gomez::{Domain, Problem, System};
 /// use na::{Dynamic, IsContiguous};
 ///
 /// // A problem is represented by a type.
