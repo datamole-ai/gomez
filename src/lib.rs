@@ -26,8 +26,6 @@
 //!   default and it will just work in most of the cases.
 //! * [LIPO](solver::lipo) -- A global optimization algorithm useful for initial
 //!   guesses search in combination with a numerical solver.
-//! * [Cuckoo search](solver::cuckoo) -- A global optimization algorithm useful
-//!   for initial guesses search in combination with a numerical solver.
 //! * [Steffensen](solver::steffensen) -- Fast and lightweight method for
 //!   one-dimensional systems.
 //! * [Nelder-Mead](solver::nelder_mead) -- Not generally recommended, but may

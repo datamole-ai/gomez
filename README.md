@@ -23,8 +23,6 @@ implementation is benchmarked against with
   work in most of the cases.
 * LIPO -- A global optimization algorithm useful for initial guesses search in
   combination with a numerical solver.
-* Cuckoo search -- A global optimization algorithm useful for initial guesses
-  search in combination with a numerical solver.
 * Steffensen -- Fast and lightweight method for one-dimensional systems.
 * Nelder-Mead -- Not generally recommended, but may be useful for
   low-dimensionality problems with an ill-defined Jacobian matrix.
