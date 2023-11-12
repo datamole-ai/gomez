@@ -48,8 +48,7 @@ pub enum LocalWalkDirection {
 /// Options for [`Cuckoo`] solver.
 #[derive(Debug, Clone, CopyGetters, Getters, Setters)]
 pub struct CuckooOptions<F: Problem, I: PopulationInit<F>> {
-    /// Population size. Default: adaptive (see
-    /// [`PopulationSize`](crate::population::PopulationSize)).
+    /// Population size. Default: adaptive (see [`PopulationSize`]).
     #[getset(get_copy = "pub", set = "pub")]
     population_size: PopulationSize,
     /// Population initializer. Default: [`UniformInit`].
