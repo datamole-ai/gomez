@@ -132,8 +132,6 @@ impl<F: Problem> NelderMeadOptions<F> {
 /// Nelder-Mead solver. See [module](self) documentation for more details.
 pub struct NelderMead<F: Problem> {
     options: NelderMeadOptions<F>,
-    fx: OVector<F::Scalar, Dynamic>,
-    fx_best: OVector<F::Scalar, Dynamic>,
     scale: OVector<F::Scalar, Dynamic>,
     centroid: OVector<F::Scalar, Dynamic>,
     reflection: OVector<F::Scalar, Dynamic>,
@@ -163,8 +161,6 @@ impl<F: Problem> NelderMead<F> {
 
         Self {
             options,
-            fx: OVector::zeros_generic(dim, U1::name()),
-            fx_best: OVector::zeros_generic(dim, U1::name()),
             scale,
             centroid: OVector::zeros_generic(dim, U1::name()),
             reflection: OVector::zeros_generic(dim, U1::name()),
@@ -216,8 +212,6 @@ impl<F: Function> NelderMead<F> {
         } = self.options;
 
         let Self {
-            fx,
-            fx_best,
             scale,
             simplex,
             errors,
@@ -237,8 +231,7 @@ impl<F: Function> NelderMead<F> {
 
             // It is important to return early on error before the point is
             // added to the simplex.
-            let mut error_best = f.apply_eval(x, fx)?;
-            fx_best.copy_from(fx);
+            let mut error_best = f.apply(x)?;
             errors.push(error_best);
             simplex.push(x.clone_owned());
 
@@ -247,7 +240,7 @@ impl<F: Function> NelderMead<F> {
                 xi[j] += scale[j];
                 dom.project_in(&mut xi, j);
 
-                let error = match f.apply_eval(&xi, fx) {
+                let error = match f.apply(&xi) {
                     Ok(error) => error,
                     // Do not fail when invalid value is encountered during
                     // building the simplex. Instead, treat it as infinity so
@@ -267,7 +260,6 @@ impl<F: Function> NelderMead<F> {
                 };
 
                 if error < error_best {
-                    fx_best.copy_from(fx);
                     error_best = error;
                 }
 
@@ -332,7 +324,7 @@ impl<F: Function> NelderMead<F> {
         // Perform one of possible simplex transformations.
         reflection.on_line2_mut(centroid, &simplex[sort_perm[n]], reflection_coeff);
         let reflection_not_feasible = dom.project(reflection);
-        let reflection_error = f.apply_eval(reflection, fx).ignore_invalid_value(inf)?;
+        let reflection_error = f.apply(reflection).ignore_invalid_value(inf)?;
 
         #[allow(clippy::suspicious_else_formatting)]
         let (transformation, not_feasible) = if errors[sort_perm[0]] <= reflection_error
@@ -344,17 +336,13 @@ impl<F: Function> NelderMead<F> {
             errors[sort_perm[n]] = reflection_error;
             (Transformation::Reflection, reflection_not_feasible)
         } else if reflection_error < errors[sort_perm[0]] {
-            fx_best.copy_from(fx);
-
             // Reflected point is better than the current best. Try to go
             // farther along this direction.
             expansion.on_line2_mut(centroid, &simplex[sort_perm[n]], expansion_coeff);
             let expansion_not_feasible = dom.project(expansion);
-            let expansion_error = f.apply_eval(expansion, fx).ignore_invalid_value(inf)?;
+            let expansion_error = f.apply(expansion).ignore_invalid_value(inf)?;
 
             if expansion_error < reflection_error {
-                fx_best.copy_from(fx);
-
                 // Expansion indeed helped, replace the worst point.
                 simplex[sort_perm[n]].copy_from(expansion);
                 errors[sort_perm[n]] = expansion_error;
@@ -377,13 +365,9 @@ impl<F: Function> NelderMead<F> {
                 // Try to perform outer contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], outer_contraction_coeff);
                 let contraction_not_feasible = dom.project(contraction);
-                let contraction_error = f.apply_eval(contraction, fx).ignore_invalid_value(inf)?;
+                let contraction_error = f.apply(contraction).ignore_invalid_value(inf)?;
 
                 if contraction_error <= reflection_error {
-                    if contraction_error < errors[sort_perm[0]] {
-                        fx_best.copy_from(fx);
-                    }
-
                     // Use the contracted point instead of the reflected point
                     // because it's better.
                     simplex[sort_perm[n]].copy_from(contraction);
@@ -399,13 +383,9 @@ impl<F: Function> NelderMead<F> {
                 // Try to perform inner contraction.
                 contraction.on_line2_mut(centroid, &simplex[sort_perm[n]], inner_contraction_coeff);
                 let contraction_not_feasible = dom.project(contraction);
-                let contraction_error = f.apply_eval(contraction, fx).ignore_invalid_value(inf)?;
+                let contraction_error = f.apply(contraction).ignore_invalid_value(inf)?;
 
                 if contraction_error <= errors[sort_perm[n]] {
-                    if contraction_error < errors[sort_perm[0]] {
-                        fx_best.copy_from(fx);
-                    }
-
                     // The contracted point is better than the worst point.
                     simplex[sort_perm[n]].copy_from(contraction);
                     errors[sort_perm[n]] = contraction_error;
@@ -430,11 +410,10 @@ impl<F: Function> NelderMead<F> {
                     for i in 1..=n {
                         let xi = &mut simplex[sort_perm[i]];
                         xi.on_line_mut(contraction, shrink_coeff);
-                        let error = f.apply_eval(xi, fx).ignore_invalid_value(inf)?;
+                        let error = f.apply(xi).ignore_invalid_value(inf)?;
                         errors[sort_perm[i]] = error;
 
                         if error < error_best {
-                            fx_best.copy_from(fx);
                             error_best = error;
                         }
                     }
@@ -525,8 +504,9 @@ impl<F: System + Function> Solver<F> for NelderMead<F> {
         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
         Sfx: StorageMut<F::Scalar, Dynamic>,
     {
-        self.next_inner(f, dom, x)
-            .map(|_| fx.copy_from(&self.fx_best))
+        self.next_inner(f, dom, x)?;
+        f.eval(x, fx)?;
+        Ok(())
     }
 }
 

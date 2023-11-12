@@ -1,8 +1,4 @@
-use nalgebra::{
-    allocator::Allocator, storage::Storage, storage::StorageMut, DefaultAllocator, Dynamic,
-    IsContiguous, Vector,
-};
-use num_traits::Zero;
+use nalgebra::{storage::Storage, Dynamic, IsContiguous, Vector};
 
 use super::{
     base::{Problem, ProblemError},
@@ -61,54 +57,6 @@ pub trait Function: Problem {
     ) -> Result<Self::Scalar, ProblemError>
     where
         Sx: Storage<Self::Scalar, Dynamic> + IsContiguous;
-
-    /// Calculate the norm of residuals of the system given values of the
-    /// variable for cases when the function is actually a system of equations.
-    ///
-    /// The optimizers should prefer calling this function because the
-    /// implementation for systems reuse `fx` for calculating the residuals and
-    /// do not make an unnecessary allocation for it.
-    fn apply_eval<Sx, Sfx>(
-        &self,
-        x: &Vector<Self::Scalar, Dynamic, Sx>,
-        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<Self::Scalar, ProblemError>
-    where
-        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Dynamic>,
-    {
-        let norm = self.apply(x)?;
-        fx.fill(Self::Scalar::zero());
-        fx[0] = norm;
-        Ok(norm)
-    }
-}
-
-impl<F: System> Function for F
-where
-    DefaultAllocator: Allocator<F::Scalar, Dynamic>,
-{
-    fn apply<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
-    where
-        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
-    {
-        let mut fx = x.clone_owned();
-        self.apply_eval(x, &mut fx)
-    }
-
-    fn apply_eval<Sx, Sfx>(
-        &self,
-        x: &Vector<Self::Scalar, Dynamic, Sx>,
-        fx: &mut Vector<Self::Scalar, Dynamic, Sfx>,
-    ) -> Result<Self::Scalar, ProblemError>
-    where
-        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
-        Sfx: StorageMut<Self::Scalar, Dynamic>,
-    {
-        self.eval(x, fx)?;
-        let norm = fx.norm();
-        Ok(norm)
-    }
 }
 
 /// Extension trait for `Result<F::Scalar, Error>`.
@@ -125,5 +73,17 @@ impl<T> FunctionResultExt<T> for Result<T, ProblemError> {
             Err(ProblemError::InvalidValue) => Ok(replace_with),
             Err(error) => Err(error),
         }
+    }
+}
+
+impl<F> Function for F
+where
+    F: System,
+{
+    fn apply<Sx>(&self, x: &Vector<Self::Scalar, Dynamic, Sx>) -> Result<Self::Scalar, ProblemError>
+    where
+        Sx: Storage<Self::Scalar, Dynamic> + IsContiguous,
+    {
+        self.norm(x)
     }
 }
