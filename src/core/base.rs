@@ -21,7 +21,7 @@ pub trait Problem {
     /// Get the domain (bound constraints) of the system. If not overridden, the
     /// system is unconstrained.
     fn domain(&self) -> Domain<Self::Scalar> {
-        Domain::with_dim(self.dim().value())
+        Domain::unconstrained(self.dim().value())
     }
 }
 

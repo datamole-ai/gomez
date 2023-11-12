@@ -1,7 +1,7 @@
 use gomez::nalgebra as na;
 use gomez::prelude::*;
 use gomez::solver::TrustRegion;
-use na::{Dim, DimName, IsContiguous};
+use na::{DimName, IsContiguous};
 
 // https://en.wikipedia.org/wiki/Rosenbrock_function
 struct Rosenbrock {
@@ -37,7 +37,7 @@ impl System for Rosenbrock {
 
 fn main() -> Result<(), String> {
     let f = Rosenbrock { a: 1.0, b: 1.0 };
-    let dom = Domain::with_dim(f.dim().value());
+    let dom = f.domain();
     let mut solver = TrustRegion::new(&f, &dom);
 
     // Initial guess.

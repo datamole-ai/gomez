@@ -40,7 +40,7 @@ use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
-    core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System, VectorDomainExt},
+    core::{Domain, Function, Optimizer, Problem, ProblemError, Solver, System},
     derivatives::{
         Gradient, GradientError, Hessian, HessianError, Jacobian, JacobianError, EPSILON_SQRT,
     },
@@ -162,13 +162,16 @@ where
             // Zero is recognized in the function `next`.
             DeltaInit::Estimated => F::Scalar::zero(),
         };
-        let scale_iter = dom.vars().iter().map(|var| var.scale());
+        let scale = dom
+            .scale()
+            .map(|scale| OVector::from_iterator_generic(f.dim(), U1::name(), scale.iter().copied()))
+            .unwrap_or_else(|| OVector::from_element_generic(f.dim(), U1::name(), convert(1.0)));
 
         Self {
             options,
             delta: delta_init,
             mu: convert(0.5),
-            scale: OVector::from_iterator_generic(f.dim(), U1::name(), scale_iter),
+            scale,
             jac: Jacobian::zeros(f),
             grad: Gradient::zeros(f),
             hes: Hessian::zeros(f),
@@ -584,7 +587,7 @@ where
         // Get candidate x' for the next iterate.
         x.add_to(p, x_trial);
 
-        let not_feasible = x_trial.project(dom);
+        let not_feasible = dom.project(x_trial);
 
         if not_feasible {
             debug!("new iterate is not feasible, performing the projection");
@@ -961,7 +964,7 @@ where
         // Get candidate x' for the next iterate.
         x.add_to(p, x_trial);
 
-        let not_feasible = x_trial.project(dom);
+        let not_feasible = dom.project(x_trial);
 
         if not_feasible {
             debug!("new iterate is not feasible, performing the projection");

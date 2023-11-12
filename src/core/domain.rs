@@ -2,144 +2,12 @@
 
 use std::iter::FromIterator;
 
-use nalgebra::{storage::StorageMut, Dim, RealField, Vector};
-
-/// [`Variable`] builder type.
-#[derive(Debug, Clone, Copy)]
-pub struct VariableBuilder<T: RealField + Copy>(Variable<T>);
-
-impl<T: RealField + Copy> VariableBuilder<T> {
-    fn new() -> Self {
-        Self(Variable::new())
-    }
-
-    /// Set the variable bounds. See
-    /// [`Variable::set_bounds`](Variable::set_bounds) for details.
-    pub fn bounds(mut self, lower: T, upper: T) -> Self {
-        self.0.set_bounds(lower, upper);
-        self
-    }
-
-    /// Set the variable magnitude. See
-    /// [`Variable::set_magnitude`](Variable::set_magnitude) for details.
-    pub fn magnitude(mut self, magnitude: T) -> Self {
-        self.0.set_magnitude(magnitude);
-        self
-    }
-
-    /// Finalize the variable construction.
-    pub fn finalize(self) -> Variable<T> {
-        self.0
-    }
-}
-
-/// Variable definition.
-///
-/// There are two pieces of information about each variable:
-///
-/// * [`Bounds`](Variable::set_bounds) are used as constraints during solving
-/// * [`Magnitude`](Variable::set_magnitude) is used to compensate scaling
-///   discrepancies between different variables.
-#[derive(Debug, Clone, Copy)]
-pub struct Variable<T: RealField + Copy> {
-    bounds: (T, T),
-    magnitude: T,
-}
-
-impl<T: RealField + Copy> Variable<T> {
-    /// Creates new unconstrained variable with magnitude 1.
-    pub fn new() -> Self {
-        let inf = T::from_subset(&f64::INFINITY);
-
-        Self {
-            bounds: (-inf, inf),
-            magnitude: T::one(),
-        }
-    }
-
-    /// Returns variable builder which allows to add constraints and magnitude.
-    pub fn builder() -> VariableBuilder<T> {
-        VariableBuilder::new()
-    }
-
-    /// Set the variable bounds.
-    ///
-    /// If both bounds are finite value, the variable magnitude is automatically
-    /// estimated by an internal heuristic.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `lower > upper`.
-    pub fn set_bounds(&mut self, lower: T, upper: T) -> &mut Self {
-        assert!(lower <= upper, "invalid bounds");
-
-        if lower.is_finite() && upper.is_finite() {
-            self.magnitude = estimate_magnitude(lower, upper);
-        }
-
-        self.bounds = (lower, upper);
-        self
-    }
-
-    /// Set the variable magnitude.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `magnitude <= 0`.
-    pub fn set_magnitude(&mut self, magnitude: T) -> &mut Self {
-        assert!(magnitude > T::zero(), "magnitude must be positive");
-        self.magnitude = magnitude;
-        self
-    }
-
-    /// Get the lower bound.
-    pub fn lower(&self) -> T {
-        self.bounds.0
-    }
-
-    /// Get the upper bound.
-    pub fn upper(&self) -> T {
-        self.bounds.1
-    }
-
-    /// Get the magnitude.
-    pub fn magnitude(&self) -> T {
-        self.magnitude
-    }
-
-    /// Get the scale which is inverse of the magnitude.
-    pub fn scale(&self) -> T {
-        T::one() / self.magnitude
-    }
-
-    /// Check if a value is within the bounds.
-    pub fn is_within(&self, value: &T) -> bool {
-        value >= &self.lower() && value <= &self.upper()
-    }
-
-    /// Return value that is clamped to be in bounds.
-    pub fn clamp(&self, value: T) -> T {
-        if value < self.lower() {
-            self.lower()
-        } else if value > self.upper() {
-            self.upper()
-        } else {
-            value
-        }
-    }
-}
-
-impl<T: RealField + Copy> Default for Variable<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: RealField + Copy> From<VariableBuilder<T>> for Variable<T> {
-    fn from(def: VariableBuilder<T>) -> Self {
-        def.finalize()
-    }
-}
+use na::{Dim, DimName};
+use nalgebra as na;
+use nalgebra::{storage::StorageMut, OVector, RealField, Vector};
+use rand::Rng;
+use rand_distr::uniform::SampleUniform;
+use rand_distr::{Distribution, Standard, Uniform};
 
 fn estimate_magnitude<T: RealField + Copy>(lower: T, upper: T) -> T {
     let ten = T::from_subset(&10.0);
@@ -157,114 +25,189 @@ fn estimate_magnitude<T: RealField + Copy>(lower: T, upper: T) -> T {
     }
 }
 
-/// A convenience macro over [`VariableBuilder`].
-///
-/// # Examples
-///
-/// ```rust
-/// use gomez::prelude::*;
-///
-/// let x = var!(-10.0f64, 10.0);
-/// assert_eq!(x.lower(), -10.0);
-/// assert_eq!(x.upper(), 10.0);
-///
-/// let y = var!(5.0f64);
-/// assert_eq!(y.magnitude(), 5.0);
-///
-/// let z = var!(-10.0f64, 10.0; 5.0);
-/// assert_eq!(z.lower(), -10.0);
-/// assert_eq!(z.upper(), 10.0);
-/// assert_eq!(z.magnitude(), 5.0);
-/// ```
-#[macro_export]
-macro_rules! var {
-    ($lower:expr, $upper:expr; $magnitude:expr) => {
-        $crate::core::Variable::builder()
-            .bounds($lower, $upper)
-            .magnitude($magnitude)
-            .finalize()
-    };
-    ($lower:expr, $upper:expr) => {
-        $crate::core::Variable::builder()
-            .bounds($lower, $upper)
-            .finalize()
-    };
-    ($magnitude:expr) => {
-        $crate::core::Variable::builder()
-            .magnitude($magnitude)
-            .finalize()
-    };
-}
-
-/// A set of [`Variable`] definitions.
-// TODO: Add generic type for nalgebra dimension?
+/// Domain for a problem.
 pub struct Domain<T: RealField + Copy> {
-    vars: Vec<Variable<T>>,
+    lower: OVector<T, na::Dynamic>,
+    upper: OVector<T, na::Dynamic>,
+    scale: Option<OVector<T, na::Dynamic>>,
 }
 
 impl<T: RealField + Copy> Domain<T> {
     /// Creates unconstrained domain with given dimension.
-    pub fn with_dim(n: usize) -> Self {
-        (0..n).map(|_| Variable::default()).collect()
-    }
+    pub fn unconstrained(dim: usize) -> Self {
+        assert!(dim > 0, "empty domain");
 
-    /// Creates the domain from variable definitions.
-    ///
-    /// This should be used for constrained or with known magnitude variables.
-    /// For unconstrained domains, use [`Domain::with_dim`] instead. Note that
-    /// it is possible to create the domain from iterator over type [`Variable`]
-    /// by calling [`collect`](Iterator::collect).
-    pub fn with_vars(vars: Vec<Variable<T>>) -> Self {
-        assert!(!vars.is_empty(), "empty domain");
-        Self { vars }
-    }
+        let inf = T::from_subset(&f64::INFINITY);
+        let n = na::Dynamic::new(dim);
+        let one = na::Const::<1>;
 
-    /// Get the variable definitions.
-    pub fn vars(&self) -> &[Variable<T>] {
-        self.vars.as_slice()
-    }
-}
-
-impl<T: RealField + Copy> FromIterator<Variable<T>> for Domain<T> {
-    fn from_iter<I: IntoIterator<Item = Variable<T>>>(iter: I) -> Self {
-        Self::with_vars(iter.into_iter().collect())
-    }
-}
-
-impl<T: RealField + Copy> From<Vec<Variable<T>>> for Domain<T> {
-    fn from(vars: Vec<Variable<T>>) -> Self {
-        Self::with_vars(vars)
-    }
-}
-
-/// Domain-related extension methods for [`Vector`], which is a common storage
-/// for variable values.
-pub trait VectorDomainExt<T: RealField + Copy, D: Dim> {
-    /// Clamp all values within corresponding bounds and returns if the original
-    /// value was outside of bounds (in other bounds, the point was not
-    /// feasible).
-    fn project(&mut self, dom: &Domain<T>) -> bool;
-}
-
-impl<T: RealField + Copy, D: Dim, S> VectorDomainExt<T, D> for Vector<T, D, S>
-where
-    S: StorageMut<T, D>,
-{
-    fn project(&mut self, dom: &Domain<T>) -> bool {
-        let not_feasible = self
-            .iter()
-            .zip(dom.vars().iter())
-            .any(|(xi, vi)| !vi.is_within(xi));
-
-        if not_feasible {
-            // The point is outside the feasible domain. We need to do the
-            // projection.
-            self.iter_mut()
-                .zip(dom.vars().iter())
-                .for_each(|(xi, vi)| *xi = vi.clamp(*xi));
+        Self {
+            lower: OVector::from_iterator_generic(n, one, (0..dim).map(|_| -inf)),
+            upper: OVector::from_iterator_generic(n, one, (0..dim).map(|_| inf)),
+            scale: None,
         }
+    }
+
+    /// Creates rectangular domain with given bounds.
+    ///
+    /// Positive and negative infinity can be used to indicate value unbounded
+    /// in that dimension and direction. If the entire domain is unconstrained,
+    /// use [`Domain::unconstrained`] instead.
+    pub fn rect(lower: OVector<T, na::Dynamic>, upper: OVector<T, na::Dynamic>) -> Self {
+        assert!(lower.ncols() == 1, "lower is not a column vector");
+        assert!(upper.ncols() == 1, "upper is not a column vector");
+        assert!(
+            lower.ncols() == upper.ncols(),
+            "lower and upper have different size"
+        );
+
+        let dim = lower.nrows();
+        assert!(dim > 0, "empty domain");
+
+        let scale = lower
+            .iter()
+            .copied()
+            .zip(upper.iter().copied())
+            .map(|(l, u)| estimate_magnitude(l, u));
+        let scale = OVector::from_iterator_generic(na::Dynamic::new(dim), na::Const::<1>, scale);
+
+        Self {
+            lower,
+            upper,
+            scale: Some(scale),
+        }
+    }
+
+    /// Sets a custom scale for the domain.
+    ///
+    /// Scale value of a variable is the inverse of the expected magnitude of
+    /// that variable.
+    pub fn with_scale(mut self, scale: OVector<T, na::Dynamic>) -> Self {
+        assert!(scale.ncols() == 1, "scale is not a column vector");
+        assert!(
+            scale.ncols() == self.lower.ncols(),
+            "scale has invalid dimension"
+        );
+
+        self.scale = Some(scale);
+        self
+    }
+
+    /// Gets the dimension of the domain.
+    pub fn dim(&self) -> usize {
+        self.lower.nrows()
+    }
+
+    /// Gets the scale if available.
+    ///
+    /// Scale can be either provided by [`Domain::with_scale`] or estimated for
+    /// a constrained domain. If there is no reliable way to estimate the scale
+    /// (for unconstrained system), `None` is returned.
+    pub fn scale(&self) -> Option<&OVector<T, na::Dynamic>> {
+        self.scale.as_ref()
+    }
+
+    /// Projects given point into the domain.
+    pub fn project<D, Sx>(&self, x: &mut Vector<T, D, Sx>) -> bool
+    where
+        D: Dim,
+        Sx: StorageMut<T, D>,
+    {
+        let mut not_feasible = false;
+
+        self.lower
+            .iter()
+            .zip(self.upper.iter())
+            .zip(x.iter_mut())
+            .for_each(|((li, ui), xi)| {
+                if &*xi < li {
+                    *xi = *li;
+                    not_feasible = true;
+                } else if &*xi > ui {
+                    *xi = *ui;
+                    not_feasible = true;
+                }
+            });
 
         not_feasible
+    }
+
+    /// Projects given point into the domain in given dimension.
+    pub fn project_in<D, Sx>(&self, x: &mut Vector<T, D, Sx>, i: usize) -> bool
+    where
+        D: Dim,
+        Sx: StorageMut<T, D>,
+    {
+        let li = self.lower[(i, 0)];
+        let ui = self.upper[(i, 0)];
+        let xi = &mut x[(i, 0)];
+
+        if *xi < li {
+            *xi = li;
+            true
+        } else if *xi > ui {
+            *xi = ui;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Samples a point in the domain.
+    pub fn sample<D, Sx, R: Rng>(&self, x: &mut Vector<T, D, Sx>, rng: &mut R)
+    where
+        D: Dim,
+        Sx: StorageMut<T, D> + na::IsContiguous,
+        T: SampleUniform,
+        Standard: Distribution<T>,
+    {
+        x.iter_mut()
+            .zip(self.lower.iter().copied().zip(self.upper.iter().copied()))
+            .for_each(|(xi, (li, ui))| {
+                *xi = if !li.is_finite() || !ui.is_finite() {
+                    let random: T = rng.gen();
+
+                    if li.is_finite() || ui.is_finite() {
+                        let clamped = random.max(li).min(ui);
+                        let delta = clamped - random;
+                        clamped + delta
+                    } else {
+                        random
+                    }
+                } else {
+                    Uniform::new_inclusive(li, ui).sample(rng)
+                };
+            });
+    }
+}
+
+impl<T: RealField + Copy> FromIterator<(T, T)> for Domain<T> {
+    fn from_iter<I: IntoIterator<Item = (T, T)>>(iter: I) -> Self {
+        let (lower, upper): (Vec<_>, Vec<_>) = iter.into_iter().unzip();
+
+        let n = na::Dynamic::new(lower.len());
+
+        let lower = OVector::from_vec_generic(n, na::U1::name(), lower);
+        let upper = OVector::from_vec_generic(n, na::U1::name(), upper);
+
+        Self::rect(lower, upper)
+    }
+}
+
+impl<T: RealField + Copy> FromIterator<T> for Domain<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let one = T::from_subset(&1.0);
+        let scale = iter
+            .into_iter()
+            .map(|magnitude| one / magnitude)
+            .collect::<Vec<_>>();
+
+        let dim = scale.len();
+        let n = na::Dynamic::new(dim);
+
+        let scale = OVector::from_vec_generic(n, na::U1::name(), scale);
+
+        Self::unconstrained(dim).with_scale(scale)
     }
 }
 
@@ -273,32 +216,23 @@ where
 mod tests {
     use super::*;
 
-    macro_rules! magnitude_of {
-        ($lower:expr, $upper:expr) => {
-            Variable::builder()
-                .bounds($lower, $upper)
-                .finalize()
-                .magnitude()
-        };
-    }
-
     #[test]
     fn magnitude() {
-        assert_eq!(magnitude_of!(-1e10f64, 1e10).log10(), 10.0);
-        assert_eq!(magnitude_of!(-1e4f64, -1e2).log10(), 3.0);
-        assert_eq!(magnitude_of!(-6e-6f64, 9e-6).log10().trunc(), -5.0);
+        assert_eq!(estimate_magnitude(-1e10f64, 1e10).log10(), 10.0);
+        assert_eq!(estimate_magnitude(-1e4f64, -1e2).log10(), 3.0);
+        assert_eq!(estimate_magnitude(-6e-6f64, 9e-6).log10().trunc(), -5.0);
 
-        assert_eq!(magnitude_of!(-6e-6f64, 9e-6) / 1e-5, 1.0);
+        assert_eq!(estimate_magnitude(-6e-6f64, 9e-6) / 1e-5, 1.0);
     }
 
     #[test]
     fn magnitude_when_bound_is_zero() {
-        assert_eq!(magnitude_of!(0f64, 1e2).log10(), 1.0);
-        assert_eq!(magnitude_of!(-1e2f64, 0.0).log10(), 1.0);
+        assert_eq!(estimate_magnitude(0f64, 1e2).log10(), 1.0);
+        assert_eq!(estimate_magnitude(-1e2f64, 0.0).log10(), 1.0);
     }
 
     #[test]
     fn edge_cases() {
-        assert_eq!(magnitude_of!(0.0f64, 0.0), 1.0);
+        assert_eq!(estimate_magnitude(0.0f64, 0.0), 1.0);
     }
 }
