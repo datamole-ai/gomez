@@ -1,4 +1,4 @@
-use nalgebra::{storage::StorageMut, IsContiguous, Vector};
+use nalgebra::{storage::StorageMut, Dynamic, IsContiguous, Vector};
 
 use super::{domain::Domain, system::System};
 
@@ -22,7 +22,7 @@ use super::{domain::Domain, system::System};
 /// ```rust
 /// use gomez::nalgebra as na;
 /// use gomez::core::*;
-/// use na::{storage::StorageMut, IsContiguous, Vector};
+/// use na::{storage::StorageMut, Dynamic, IsContiguous, Vector};
 /// use rand::Rng;
 /// use rand_distr::{uniform::SampleUniform, Distribution, Standard};
 ///
@@ -48,12 +48,12 @@ use super::{domain::Domain, system::System};
 ///         &mut self,
 ///         f: &F,
 ///         dom: &Domain<F::Scalar>,
-///         x: &mut Vector<F::Scalar, F::Dim, Sx>,
-///         fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
+///         x: &mut Vector<F::Scalar, Dynamic, Sx>,
+///         fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
 ///     ) -> Result<(), Self::Error>
 ///     where
-///         Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-///         Sfx: StorageMut<F::Scalar, F::Dim>,
+///         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+///         Sfx: StorageMut<F::Scalar, Dynamic>,
 ///     {
 ///         // Randomly sample in the domain.
 ///         dom.sample(x, &mut self.rng);
@@ -92,10 +92,10 @@ pub trait Solver<F: System> {
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sfx: StorageMut<F::Scalar, F::Dim>;
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<F::Scalar, Dynamic>;
 }

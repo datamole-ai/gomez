@@ -10,8 +10,7 @@
 use std::marker::PhantomData;
 
 use nalgebra::{
-    allocator::Allocator, convert, storage::StorageMut, ComplexField, DefaultAllocator, DimMin,
-    DimName, IsContiguous, OVector, Vector, U1,
+    convert, storage::StorageMut, ComplexField, DimName, Dynamic, IsContiguous, OVector, Vector, U1,
 };
 use thiserror::Error;
 
@@ -37,28 +36,23 @@ pub struct InitialGuessAnalysis<F: Problem> {
     ty: PhantomData<F>,
 }
 
-impl<F: System> InitialGuessAnalysis<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-    F::Dim: DimMin<F::Dim, Output = F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, <F::Dim as DimMin<F::Dim>>::Output>,
-{
+impl<F: System> InitialGuessAnalysis<F> {
     /// Analyze the system in given point.
     pub fn analyze<Sx, Sfx>(
         f: &F,
         dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
     ) -> Result<Self, InitialGuessAnalysisError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sfx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<F::Scalar, Dynamic>,
     {
+        let dim = Dynamic::new(dom.dim());
         let scale = dom
             .scale()
-            .map(|scale| OVector::from_iterator_generic(f.dim(), U1::name(), scale.iter().copied()))
-            .unwrap_or_else(|| OVector::from_element_generic(f.dim(), U1::name(), convert(1.0)));
+            .map(|scale| OVector::from_iterator_generic(dim, U1::name(), scale.iter().copied()))
+            .unwrap_or_else(|| OVector::from_element_generic(dim, U1::name(), convert(1.0)));
 
         // Compute F'(x) in the initial point.
         f.eval(x, fx)?;

@@ -1,4 +1,4 @@
-use nalgebra::{storage::StorageMut, IsContiguous, Vector};
+use nalgebra::{storage::StorageMut, Dynamic, IsContiguous, Vector};
 
 use super::{domain::Domain, function::Function};
 
@@ -22,7 +22,7 @@ use super::{domain::Domain, function::Function};
 /// ```rust
 /// use gomez::nalgebra as na;
 /// use gomez::core::*;
-/// use na::{storage::StorageMut, IsContiguous, Vector};
+/// use na::{storage::StorageMut, Dynamic, IsContiguous, Vector};
 /// use rand::Rng;
 /// use rand_distr::{uniform::SampleUniform, Distribution, Standard};
 ///
@@ -48,10 +48,10 @@ use super::{domain::Domain, function::Function};
 ///         &mut self,
 ///         f: &F,
 ///         dom: &Domain<F::Scalar>,
-///         x: &mut Vector<F::Scalar, F::Dim, Sx>,
+///         x: &mut Vector<F::Scalar, Dynamic, Sx>,
 ///     ) -> Result<F::Scalar, Self::Error>
 ///     where
-///         Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
+///         Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
 ///     {
 ///         // Randomly sample in the domain.
 ///         dom.sample(x, &mut self.rng);
@@ -89,8 +89,8 @@ pub trait Optimizer<F: Function> {
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
     ) -> Result<F::Scalar, Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous;
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous;
 }

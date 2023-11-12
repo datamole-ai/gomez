@@ -70,7 +70,7 @@
 //! // Gomez is based on `nalgebra` crate.
 //! use gomez::nalgebra as na;
 //! use gomez::prelude::*;
-//! use na::{Dim, DimName, IsContiguous};
+//! use na::{Dynamic, IsContiguous};
 //!
 //! // A problem is represented by a type.
 //! struct Rosenbrock {
@@ -81,12 +81,11 @@
 //! impl Problem for Rosenbrock {
 //!     // The numeric type. Usually f64 or f32.
 //!     type Scalar = f64;
-//!     // The dimension of the problem. Can be either statically known or dynamic.
-//!     type Dim = na::U2;
 //!
-//!     // Return the actual dimension of the system.
-//!     fn dim(&self) -> Self::Dim {
-//!         na::U2::name()
+//!     // Specification for the domain. At the very least, the dimension
+//!     // must be known.
+//!     fn domain(&self) -> Domain<Self::Scalar> {
+//!         Domain::unconstrained(2)
 //!     }
 //! }
 //!
@@ -94,12 +93,12 @@
 //!     // Evaluate trial values of variables to the system.
 //!     fn eval<Sx, Sfx>(
 //!         &self,
-//!         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
-//!         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
+//!         x: &na::Vector<Self::Scalar, Dynamic, Sx>,
+//!         fx: &mut na::Vector<Self::Scalar, Dynamic, Sfx>,
 //!     ) -> Result<(), ProblemError>
 //!     where
-//!         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
-//!         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
+//!         Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
+//!         Sfx: na::storage::StorageMut<Self::Scalar, Dynamic>,
 //!     {
 //!         // Compute the residuals of all equations.
 //!         fx[0] = (self.a - x[0]).powi(2);
@@ -116,14 +115,12 @@
 //! technique (usually sufficient in practice) or algorithms that are
 //! derivative-free by definition.
 //!
-//! By default, the variables are considered unconstrained, but for constrained
-//! problems it is just matter of overriding the default implementation of the
-//! [`domain`](core::Problem::domain) method.
+//! The previous example used unconstrained variable, but it is also possible to
+//! specify bounds.
 //!
 //! ```rust
 //! # use gomez::nalgebra as na;
 //! # use gomez::prelude::*;
-//! # use na::{Dim, DimName};
 //! #
 //! # struct Rosenbrock {
 //! #     a: f64,
@@ -132,12 +129,6 @@
 //! #
 //! impl Problem for Rosenbrock {
 //! #     type Scalar = f64;
-//! #     type Dim = na::U2;
-//! #
-//! #     fn dim(&self) -> Self::Dim {
-//! #         na::U2::name()
-//! #     }
-//!     // ...
 //!
 //!     fn domain(&self) -> Domain<Self::Scalar> {
 //!         [(-10.0, 10.0), (-10.0, 10.0)].into_iter().collect()
@@ -161,7 +152,7 @@
 //! use gomez::prelude::*;
 //! // Pick your solver.
 //! use gomez::solver::TrustRegion;
-//! # use na::{Dim, DimName, IsContiguous};
+//! # use na::{Dynamic, IsContiguous};
 //! #
 //! # struct Rosenbrock {
 //! #     a: f64,
@@ -170,22 +161,21 @@
 //! #
 //! # impl Problem for Rosenbrock {
 //! #     type Scalar = f64;
-//! #     type Dim = na::U2;
 //! #
-//! #     fn dim(&self) -> Self::Dim {
-//! #         na::U2::name()
+//! #     fn domain(&self) -> Domain<Self::Scalar> {
+//! #         Domain::unconstrained(2)
 //! #     }
 //! # }
 //! #
 //! # impl System for Rosenbrock {
 //! #     fn eval<Sx, Sfx>(
 //! #         &self,
-//! #         x: &na::Vector<Self::Scalar, Self::Dim, Sx>,
-//! #         fx: &mut na::Vector<Self::Scalar, Self::Dim, Sfx>,
+//! #         x: &na::Vector<Self::Scalar, Dynamic, Sx>,
+//! #         fx: &mut na::Vector<Self::Scalar, Dynamic, Sfx>,
 //! #     ) -> Result<(), ProblemError>
 //! #     where
-//! #         Sx: na::storage::Storage<Self::Scalar, Self::Dim> + IsContiguous,
-//! #         Sfx: na::storage::StorageMut<Self::Scalar, Self::Dim>,
+//! #         Sx: na::storage::Storage<Self::Scalar, Dynamic> + IsContiguous,
+//! #         Sfx: na::storage::StorageMut<Self::Scalar, Dynamic>,
 //! #     {
 //! #         fx[0] = (self.a - x[0]).powi(2);
 //! #         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
@@ -200,10 +190,10 @@
 //! let mut solver = TrustRegion::new(&f, &dom);
 //!
 //! // Initial guess. Good choice helps the convergence of numerical methods.
-//! let mut x = na::vector![-10.0, -5.0];
+//! let mut x = na::dvector![-10.0, -5.0];
 //!
 //! // Residuals vector.
-//! let mut fx = na::vector![0.0, 0.0];
+//! let mut fx = na::dvector![0.0, 0.0];
 //!
 //! for i in 1.. {
 //!     // Do one iteration in the solving process.

@@ -15,7 +15,7 @@
 use std::marker::PhantomData;
 
 use getset::{CopyGetters, Setters};
-use nalgebra::{storage::StorageMut, Dim, IsContiguous, Vector};
+use nalgebra::{storage::StorageMut, Dynamic, IsContiguous, Vector};
 use thiserror::Error;
 
 use crate::core::{Domain, Problem, ProblemError, Solver, System};
@@ -88,14 +88,14 @@ impl<F: System> Solver<F> for Steffensen<F> {
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut Vector<F::Scalar, F::Dim, Sfx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<F::Scalar, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sfx: StorageMut<F::Scalar, F::Dim>,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<F::Scalar, Dynamic>,
     {
-        if f.dim().value() != 1 {
+        if dom.dim() != 1 {
             return Err(SteffensenError::Problem(
                 ProblemError::InvalidDimensionality,
             ));

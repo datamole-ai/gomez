@@ -12,8 +12,8 @@
 use getset::{CopyGetters, Setters};
 use log::{debug, trace};
 use nalgebra::{
-    allocator::Allocator, convert, try_convert, ComplexField, DefaultAllocator, Dim, DimName,
-    IsContiguous, OVector, StorageMut, Vector, U1,
+    convert, try_convert, ComplexField, DimName, Dynamic, IsContiguous, OVector, StorageMut,
+    Vector, U1,
 };
 use num_traits::{One, Zero};
 use rand::Rng;
@@ -75,29 +75,23 @@ impl<F: Problem> Default for LipoOptions<F> {
 }
 
 /// LIPO solver. See [module](self) documentation for more details.
-pub struct Lipo<F: Problem, R>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+pub struct Lipo<F: Problem, R> {
     options: LipoOptions<F>,
     alpha: F::Scalar,
-    xs: Vec<OVector<F::Scalar, F::Dim>>,
+    xs: Vec<OVector<F::Scalar, Dynamic>>,
     ys: Vec<F::Scalar>,
     best: usize,
     k: F::Scalar,
     k_inf: F::Scalar,
     rng: R,
     bernoulli: Bernoulli,
-    tmp: OVector<F::Scalar, F::Dim>,
-    x_tmp: OVector<F::Scalar, F::Dim>,
+    tmp: OVector<F::Scalar, Dynamic>,
+    x_tmp: OVector<F::Scalar, Dynamic>,
     local_optimizer: NelderMead<F>,
     iter: usize,
 }
 
-impl<F: Problem, R: Rng> Lipo<F, R>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: Problem, R: Rng> Lipo<F, R> {
     /// Initializes LIPO solver with default options.
     pub fn new(f: &F, dom: &Domain<F::Scalar>, rng: R) -> Self {
         Self::with_options(f, dom, LipoOptions::default(), rng)
@@ -105,11 +99,13 @@ where
 
     /// Initializes LIPO solver with given options.
     pub fn with_options(f: &F, dom: &Domain<F::Scalar>, options: LipoOptions<F>, rng: R) -> Self {
+        let dim = Dynamic::new(dom.dim());
+
         let p_explore = options.p_explore.clamp(0.0, 1.0);
 
         let alpha = match options.alpha {
             AlphaInit::Fixed(alpha) => alpha,
-            AlphaInit::ScaledByDim(alpha) => alpha / convert(f.dim().value() as f64),
+            AlphaInit::ScaledByDim(alpha) => alpha / convert(dom.dim() as f64),
         };
 
         Self {
@@ -122,8 +118,8 @@ where
             k_inf: F::Scalar::zero(),
             rng,
             bernoulli: Bernoulli::new(p_explore).unwrap(),
-            tmp: OVector::zeros_generic(f.dim(), U1::name()),
-            x_tmp: OVector::zeros_generic(f.dim(), U1::name()),
+            tmp: OVector::zeros_generic(dim, U1::name()),
+            x_tmp: OVector::zeros_generic(dim, U1::name()),
             local_optimizer: NelderMead::new(f, dom),
             iter: 0,
         }
@@ -146,7 +142,7 @@ where
     /// the LIPO solver gives extra information for free.
     pub fn add_evaluation(
         &mut self,
-        x: OVector<F::Scalar, F::Dim>,
+        x: OVector<F::Scalar, Dynamic>,
         y: F::Scalar,
     ) -> Result<(), LipoError> {
         let alpha = self.alpha;
@@ -218,7 +214,6 @@ pub enum LipoError {
 
 impl<F: Function, R: Rng> Lipo<F, R>
 where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     F::Scalar: SampleUniform,
     Standard: Distribution<F::Scalar>,
 {
@@ -226,10 +221,10 @@ where
         &mut self,
         f: &F,
         dom: &Domain<F::Scalar>,
-        x: &mut Vector<F::Scalar, F::Dim, Sx>,
+        x: &mut Vector<F::Scalar, Dynamic, Sx>,
     ) -> Result<F::Scalar, LipoError>
     where
-        Sx: StorageMut<F::Scalar, F::Dim> + IsContiguous,
+        Sx: StorageMut<F::Scalar, Dynamic> + IsContiguous,
     {
         let LipoOptions {
             sampling_trials,
@@ -271,7 +266,7 @@ where
 
             // Generate a few random points in the beginning of the optimization to
             // make the estimation of lower bound sensible.
-            let initialization = xs.len() < f.dim().value().max(3);
+            let initialization = xs.len() < dom.dim().max(3);
 
             // Exploitation mode is allowed only when there is enough points
             // evaluated and the Lipschitz constant is estimated. Then there is
@@ -388,7 +383,6 @@ where
 
 impl<F: Function, R: Rng> Optimizer<F> for Lipo<F, R>
 where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     F::Scalar: SampleUniform,
     Standard: Distribution<F::Scalar>,
 {
@@ -400,10 +394,10 @@ where
         &mut self,
         f: &F,
         dom: &Domain<<F>::Scalar>,
-        x: &mut Vector<<F>::Scalar, <F>::Dim, Sx>,
+        x: &mut Vector<<F>::Scalar, Dynamic, Sx>,
     ) -> Result<<F>::Scalar, Self::Error>
     where
-        Sx: StorageMut<<F>::Scalar, <F>::Dim> + IsContiguous,
+        Sx: StorageMut<<F>::Scalar, Dynamic> + IsContiguous,
     {
         self.next_inner(f, dom, x)
     }
@@ -411,7 +405,6 @@ where
 
 impl<F: System, R: Rng> Solver<F> for Lipo<F, R>
 where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
     F::Scalar: SampleUniform,
     Standard: Distribution<F::Scalar>,
 {
@@ -423,12 +416,12 @@ where
         &mut self,
         f: &F,
         dom: &Domain<<F>::Scalar>,
-        x: &mut Vector<<F>::Scalar, <F>::Dim, Sx>,
-        fx: &mut Vector<<F>::Scalar, <F>::Dim, Sfx>,
+        x: &mut Vector<<F>::Scalar, Dynamic, Sx>,
+        fx: &mut Vector<<F>::Scalar, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<<F>::Scalar, <F>::Dim> + IsContiguous,
-        Sfx: StorageMut<<F>::Scalar, <F>::Dim>,
+        Sx: StorageMut<<F>::Scalar, Dynamic> + IsContiguous,
+        Sfx: StorageMut<<F>::Scalar, Dynamic>,
     {
         self.next_inner(f, dom, x)?;
         f.eval(x, fx)?;

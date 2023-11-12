@@ -4,7 +4,7 @@ fn main() {
 
 use gomez::{
     nalgebra as na,
-    nalgebra::{allocator::Allocator, DefaultAllocator},
+    nalgebra::Dynamic,
     prelude::*,
     solver::{NelderMead, TrustRegion},
     testing::*,
@@ -168,14 +168,9 @@ mod bullard_biegler {
 fn bench_solve<F, S, GF, GS>(bencher: divan::Bencher, with_system: GF, with_solver: GS)
 where
     GF: Fn() -> (F, usize),
-    GS: Fn(&F, &Domain<F::Scalar>, &na::OVector<F::Scalar, F::Dim>) -> S,
+    GS: Fn(&F, &Domain<F::Scalar>, &na::OVector<F::Scalar, Dynamic>) -> S,
     F: TestSystem,
     S: Solver<F>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-    F::Dim: na::DimMin<F::Dim, Output = F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, <F::Dim as na::DimMin<F::Dim>>::Output>,
-    DefaultAllocator: na::allocator::Reallocator<F::Scalar, F::Dim, F::Dim, F::Dim, F::Dim>,
 {
     bencher
         .with_inputs(move || {
@@ -209,12 +204,10 @@ where
 fn with_trust_region<F>(
     f: &F,
     dom: &Domain<F::Scalar>,
-    _: &na::OVector<F::Scalar, F::Dim>,
+    _: &na::OVector<F::Scalar, Dynamic>,
 ) -> TrustRegion<F>
 where
     F: Problem,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
 {
     TrustRegion::new(f, dom)
 }
@@ -222,11 +215,10 @@ where
 fn with_nelder_mead<F>(
     f: &F,
     dom: &Domain<F::Scalar>,
-    _: &na::OVector<F::Scalar, F::Dim>,
+    _: &na::OVector<F::Scalar, Dynamic>,
 ) -> NelderMead<F>
 where
     F: Problem,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
     NelderMead::new(f, dom)
 }
@@ -234,11 +226,10 @@ where
 fn with_gsl_hybrids<F>(
     f: &F,
     _: &Domain<F::Scalar>,
-    x: &na::OVector<F::Scalar, F::Dim>,
+    x: &na::OVector<F::Scalar, Dynamic>,
 ) -> GslSolverWrapper<GslFunctionWrapper<F>>
 where
     F: TestSystem<Scalar = f64> + Clone,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
 {
     GslSolverWrapper::new(GslFunctionWrapper::new(
         f.clone(),
@@ -257,21 +248,19 @@ impl<F> GslFunctionWrapper<F> {
     }
 }
 
-impl<F: TestSystem<Scalar = f64>> GslFunction for GslFunctionWrapper<F>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-{
+impl<F: TestSystem<Scalar = f64>> GslFunction for GslFunctionWrapper<F> {
     fn eval(&self, x: &GslVec, f: &mut GslVec) -> GslStatus {
         use na::DimName;
+        let dim = Dynamic::new(x.len());
 
-        let x = na::MatrixSlice::<f64, F::Dim, na::U1>::from_slice_generic(
+        let x = na::MatrixSlice::<f64, Dynamic, na::U1>::from_slice_generic(
             x.as_slice(),
-            self.f.dim(),
+            dim,
             na::U1::name(),
         );
-        let mut fx = na::MatrixSliceMut::<f64, F::Dim, na::U1>::from_slice_generic(
+        let mut fx = na::MatrixSliceMut::<f64, Dynamic, na::U1>::from_slice_generic(
             f.as_mut_slice(),
-            self.f.dim(),
+            dim,
             na::U1::name(),
         );
 
@@ -298,14 +287,7 @@ impl<F: GslFunction> GslSolverWrapper<F> {
     }
 }
 
-impl<F: TestSystem<Scalar = f64>> Solver<F> for GslSolverWrapper<GslFunctionWrapper<F>>
-where
-    DefaultAllocator: Allocator<F::Scalar, F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, F::Dim, F::Dim>,
-    F::Dim: na::DimMin<F::Dim, Output = F::Dim>,
-    DefaultAllocator: Allocator<F::Scalar, <F::Dim as na::DimMin<F::Dim>>::Output>,
-    DefaultAllocator: na::allocator::Reallocator<F::Scalar, F::Dim, F::Dim, F::Dim, F::Dim>,
-{
+impl<F: TestSystem<Scalar = f64>> Solver<F> for GslSolverWrapper<GslFunctionWrapper<F>> {
     const NAME: &'static str = "GSL hybrids";
 
     type Error = String;
@@ -314,12 +296,12 @@ where
         &mut self,
         _f: &F,
         _dom: &Domain<F::Scalar>,
-        x: &mut na::Vector<F::Scalar, F::Dim, Sx>,
-        fx: &mut na::Vector<F::Scalar, F::Dim, Sfx>,
+        x: &mut na::Vector<F::Scalar, Dynamic, Sx>,
+        fx: &mut na::Vector<F::Scalar, Dynamic, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: na::storage::StorageMut<F::Scalar, F::Dim> + IsContiguous,
-        Sfx: na::storage::StorageMut<F::Scalar, F::Dim>,
+        Sx: na::storage::StorageMut<F::Scalar, Dynamic> + IsContiguous,
+        Sfx: na::storage::StorageMut<F::Scalar, Dynamic>,
     {
         let result = self.solver.step().to_result();
         x.copy_from_slice(self.solver.root());
