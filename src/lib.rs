@@ -252,7 +252,6 @@
 pub mod analysis;
 pub mod core;
 pub mod derivatives;
-pub mod population;
 pub mod solver;
 pub mod testing;
 

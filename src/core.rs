@@ -5,8 +5,7 @@
 //!
 //! Algorithms *developers* are interested in implementing the [`Solver`] trait
 //! (or possibly the [`Optimizer`] trait too) and using extension traits (e.g.,
-//! [`VectorDomainExt`]) as well as tools in [derivatives](crate::derivatives)
-//! or [population](crate::population) modules.
+//! [`VectorDomainExt`]) as well as tools in [derivatives](crate::derivatives).
 
 mod base;
 mod domain;
