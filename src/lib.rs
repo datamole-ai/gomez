@@ -253,7 +253,12 @@ pub mod analysis;
 pub mod core;
 pub mod derivatives;
 pub mod solver;
+
+#[cfg(feature = "testing")]
 pub mod testing;
+
+#[cfg(not(feature = "testing"))]
+pub(crate) mod testing;
 
 pub use nalgebra;
 

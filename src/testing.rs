@@ -18,6 +18,8 @@
 //! \[4\] [HOMPACK: A Suite of Codes for Globally Convergent Homotopy
 //! Algorithms](https://dl.acm.org/doi/10.1145/29380.214343)
 
+#![allow(unused)]
+
 use std::error::Error as StdError;
 
 use nalgebra::{
