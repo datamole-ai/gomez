@@ -7,24 +7,8 @@ use na::{Dim, DimName};
 use nalgebra as na;
 use nalgebra::{storage::StorageMut, OVector, RealField, Vector};
 
+use crate::analysis::estimate_magnitude_from_bounds;
 use crate::core::Sample;
-
-/// Estimates magnitude of the variable given lower and upper bounds.
-pub fn estimate_magnitude<T: RealField + Copy>(lower: T, upper: T) -> T {
-    let ten = T::from_subset(&10.0);
-    let half = T::from_subset(&0.5);
-
-    let avg = half * (lower.abs() + upper.abs());
-    let magnitude = ten.powf(avg.abs().log10().trunc());
-
-    // For [0, 0] range, the computed magnitude is undefined. We allow such
-    // ranges to support fixing a variable to a value with existing API.
-    if magnitude.is_finite() && magnitude > T::zero() {
-        magnitude
-    } else {
-        T::one()
-    }
-}
 
 /// Domain for a problem.
 pub struct Domain<T: RealField + Copy> {
@@ -69,7 +53,7 @@ impl<T: RealField + Copy> Domain<T> {
             .iter()
             .copied()
             .zip(upper.iter().copied())
-            .map(|(l, u)| estimate_magnitude(l, u));
+            .map(|(l, u)| estimate_magnitude_from_bounds(l, u));
         let scale = OVector::from_iterator_generic(na::Dynamic::new(dim), na::Const::<1>, scale);
 
         Self {
@@ -208,31 +192,5 @@ impl<T: RealField + Copy> FromIterator<T> for Domain<T> {
         let scale = OVector::from_vec_generic(n, na::U1::name(), scale);
 
         Self::unconstrained(dim).with_scale(scale)
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::float_cmp)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn magnitude() {
-        assert_eq!(estimate_magnitude(-1e10f64, 1e10).log10(), 10.0);
-        assert_eq!(estimate_magnitude(-1e4f64, -1e2).log10(), 3.0);
-        assert_eq!(estimate_magnitude(-6e-6f64, 9e-6).log10().trunc(), -5.0);
-
-        assert_eq!(estimate_magnitude(-6e-6f64, 9e-6) / 1e-5, 1.0);
-    }
-
-    #[test]
-    fn magnitude_when_bound_is_zero() {
-        assert_eq!(estimate_magnitude(0f64, 1e2).log10(), 1.0);
-        assert_eq!(estimate_magnitude(-1e2f64, 0.0).log10(), 1.0);
-    }
-
-    #[test]
-    fn edge_cases() {
-        assert_eq!(estimate_magnitude(0.0f64, 0.0), 1.0);
     }
 }
