@@ -28,9 +28,8 @@
 //!   guesses search in combination with a numerical solver.
 //! * [Steffensen](algo::steffensen) -- Fast and lightweight method for
 //!   one-dimensional systems.
-//! * [Nelder-Mead](algo::nelder_mead) -- Not generally recommended, but may
-//!   be useful for low-dimensionality problems with ill-defined Jacobian
-//!   matrix.
+//! * [Nelder-Mead](algo::nelder_mead) -- Not generally recommended, but may be
+//!   useful for low-dimensionality problems with ill-defined Jacobian matrix.
 //!
 //! ## Problem
 //!
@@ -126,6 +125,7 @@
 //! #
 //! impl Problem for Rosenbrock {
 //! #     type Field = f64;
+//!     // ...
 //!
 //!     fn domain(&self) -> Domain<Self::Field> {
 //!         [(-10.0, 10.0), (-10.0, 10.0)].into_iter().collect()
@@ -135,20 +135,12 @@
 //!
 //! ## Solving
 //!
-//! When you have your system available, pick a solver of your choice and
-//! iterate until the solution under certain convergence criteria is found or
-//! termination limits are reached.
-//!
-//! **NOTE:** The following example uses low-level solver interface where you
-//! are in full control of the iteration process and access to all intermediate
-//! results. We plan to provide high-level drivers for convenience in the
-//! future.
+//! When you have your system available, you can use the [`SolverDriver`] to run
+//! the iteration process until a stopping criterion is reached.
 //!
 //! ```rust
-//! use gomez::nalgebra as na;
-//! use gomez::Solver;
-//! // Pick your solver.
-//! use gomez::algo::TrustRegion;
+//! use gomez::SolverDriver;
+//! # use gomez::nalgebra as na;
 //! # use gomez::{Domain, Problem, System};
 //! # use na::{Dynamic, IsContiguous};
 //! #
@@ -180,37 +172,28 @@
 //! # }
 //!
 //! let f = Rosenbrock { a: 1.0, b: 1.0 };
-//! let dom = f.domain();
+//! let mut solver = SolverDriver::builder(&f)
+//!     .with_initial(vec![-10.0, -5.0])
+//!     .build();
 //!
-//! let mut solver = TrustRegion::new(&f, &dom);
+//! let tolerance = 1e-6;
 //!
-//! // Initial guess. Good choice helps the convergence of numerical methods.
-//! let mut x = na::dvector![-10.0, -5.0];
+//! let result = solver
+//!     .find(|state| {
+//!         println!(
+//!             "iter = {}\t|| fx || = {}\tx = {:?}",
+//!             state.iter(),
+//!             state.norm(),
+//!             state.x()
+//!         );
+//!         state.norm() <= tolerance || state.iter() >= 100
+//!     })
+//!     .expect("solver encountered an error");
 //!
-//! // Residuals vector.
-//! let mut fx = na::dvector![0.0, 0.0];
-//!
-//! for i in 1.. {
-//!     // Do one iteration in the solving process.
-//!     solver
-//!         .solve_next(&f, &dom, &mut x, &mut fx)
-//!         .expect("solver encountered an error");
-//!
-//!     println!(
-//!         "iter = {}\t|| fx || = {}\tx = {:?}",
-//!         i,
-//!         fx.norm(),
-//!         x.as_slice()
-//!     );
-//!
-//!     // Check the termination criteria.
-//!     if fx.norm() < 1e-6 {
-//!         println!("solved");
-//!         break;
-//!     } else if i == 100 {
-//!         println!("maximum number of iteration exceeded");
-//!         break;
-//!     }
+//! if result <= tolerance {
+//!     println!("solved");
+//! } else {
+//!     println!("maximum number of iteration exceeded");
 //! }
 //! ```
 //!
@@ -238,8 +221,10 @@ pub mod algo;
 pub mod analysis;
 mod core;
 pub mod derivatives;
+pub mod driver;
 
 pub use core::*;
+pub use driver::{OptimizerDriver, SolverDriver};
 
 #[cfg(feature = "testing")]
 pub mod testing;

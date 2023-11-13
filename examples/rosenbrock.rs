@@ -1,6 +1,5 @@
-use gomez::algo::TrustRegion;
 use gomez::nalgebra as na;
-use gomez::{Domain, Problem, Solver, System};
+use gomez::{Domain, Problem, SolverDriver, System};
 use na::{Dynamic, IsContiguous};
 
 // https://en.wikipedia.org/wiki/Rosenbrock_function
@@ -33,31 +32,27 @@ impl System for Rosenbrock {
 
 fn main() -> Result<(), String> {
     let f = Rosenbrock { a: 1.0, b: 1.0 };
-    let dom = f.domain();
-    let mut solver = TrustRegion::new(&f, &dom);
+    let mut solver = SolverDriver::builder(&f)
+        .with_initial(vec![-10.0, -5.0])
+        .build();
 
-    // Initial guess.
-    let mut x = na::dvector![-10.0, -5.0];
+    let tolerance = 1e-6;
 
-    let mut fx = na::dvector![0.0, 0.0];
+    let result = solver
+        .find(|state| {
+            println!(
+                "iter = {}\t|| fx || = {}\tx = {:?}",
+                state.iter(),
+                state.norm(),
+                state.x()
+            );
+            state.norm() <= tolerance || state.iter() >= 100
+        })
+        .map_err(|error| format!("{error}"))?;
 
-    for i in 1..=100 {
-        solver
-            .solve_next(&f, &dom, &mut x, &mut fx)
-            .map_err(|err| format!("{}", err))?;
-
-        println!(
-            "iter = {}\t|| fx || = {}\tx = {:?}",
-            i,
-            fx.norm(),
-            x.as_slice()
-        );
-
-        if fx.norm() < 1e-6 {
-            println!("solved");
-            return Ok(());
-        }
+    if result <= tolerance {
+        Ok(())
+    } else {
+        Err("did not converge".to_string())
     }
-
-    Err("did not converge".to_string())
 }
