@@ -9,7 +9,8 @@ use nalgebra::{storage::StorageMut, OVector, RealField, Vector};
 
 use crate::core::Sample;
 
-fn estimate_magnitude<T: RealField + Copy>(lower: T, upper: T) -> T {
+/// Estimates magnitude of the variable given lower and upper bounds.
+pub fn estimate_magnitude<T: RealField + Copy>(lower: T, upper: T) -> T {
     let ten = T::from_subset(&10.0);
     let half = T::from_subset(&0.5);
 
