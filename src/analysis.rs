@@ -32,7 +32,7 @@ pub fn estimate_magnitude_from_bounds<T: RealField + Copy>(lower: T, upper: T) -
 /// Based on \[1\]. Linear variables have no effect on Jacobian matrix, thus it
 /// makes sense to focus on non-linear variables and their initial guesses for
 /// Newton-based algorithms (e.g.,
-/// [`TrustRegion`](crate::solver::trust_region)).
+/// [`TrustRegion`](crate::algo::trust_region)).
 ///
 /// \[1\] [On the Choice of Initial Guesses for the Newton-Raphson
 /// Algorithm](https://arxiv.org/abs/1911.12433)

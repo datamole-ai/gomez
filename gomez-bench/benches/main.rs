@@ -3,9 +3,9 @@ fn main() {
 }
 
 use gomez::{
+    algo::{NelderMead, TrustRegion},
     nalgebra as na,
     nalgebra::Dynamic,
-    solver::{NelderMead, TrustRegion},
     testing::*,
     Domain, Problem, Solver,
 };
