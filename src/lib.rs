@@ -22,13 +22,13 @@
 //!
 //! ## Algorithms
 //!
-//! * [Trust region](solver::trust_region) -- Recommended method to be used as a
+//! * [Trust region](algo::trust_region) -- Recommended method to be used as a
 //!   default and it will just work in most of the cases.
-//! * [LIPO](solver::lipo) -- A global optimization algorithm useful for initial
+//! * [LIPO](algo::lipo) -- A global optimization algorithm useful for initial
 //!   guesses search in combination with a numerical solver.
-//! * [Steffensen](solver::steffensen) -- Fast and lightweight method for
+//! * [Steffensen](algo::steffensen) -- Fast and lightweight method for
 //!   one-dimensional systems.
-//! * [Nelder-Mead](solver::nelder_mead) -- Not generally recommended, but may
+//! * [Nelder-Mead](algo::nelder_mead) -- Not generally recommended, but may
 //!   be useful for low-dimensionality problems with ill-defined Jacobian
 //!   matrix.
 //!
@@ -148,7 +148,7 @@
 //! use gomez::nalgebra as na;
 //! use gomez::Solver;
 //! // Pick your solver.
-//! use gomez::solver::TrustRegion;
+//! use gomez::algo::TrustRegion;
 //! # use gomez::{Domain, Problem, System};
 //! # use na::{Dynamic, IsContiguous};
 //! #
@@ -234,10 +234,10 @@
 //!
 //! Licensed under MIT.
 
+pub mod algo;
 pub mod analysis;
 mod core;
 pub mod derivatives;
-pub mod solver;
 
 pub use core::*;
 

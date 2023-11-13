@@ -1,5 +1,5 @@
+use gomez::algo::TrustRegion;
 use gomez::nalgebra as na;
-use gomez::solver::TrustRegion;
 use gomez::{Domain, Problem, Solver, System};
 use na::{Dynamic, IsContiguous};
 
