@@ -111,6 +111,10 @@ jobs:
         working-directory: gsl-wrapper
         run: cargo test --profile ${{ matrix.profile }}
 
+      - name: Run checks (benches)
+        working-directory: gomez-bench
+        run: cargo check --profile ${{ matrix.profile }}
+
   rust-check-docs:
     name: Rust docs check
     runs-on: ubuntu-latest
