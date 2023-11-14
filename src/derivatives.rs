@@ -4,7 +4,7 @@ use std::ops::Deref;
 
 use nalgebra::{
     storage::{Storage, StorageMut},
-    ComplexField, DimName, Dynamic, IsContiguous, OMatrix, OVector, RealField, Vector, U1,
+    ComplexField, DimName, Dyn, IsContiguous, OMatrix, OVector, RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
 
@@ -13,13 +13,13 @@ use crate::core::{Function, Problem, RealField as _, System};
 /// Jacobian matrix of a system.
 #[derive(Debug)]
 pub struct Jacobian<F: Problem> {
-    jac: OMatrix<F::Field, Dynamic, Dynamic>,
+    jac: OMatrix<F::Field, Dyn, Dyn>,
 }
 
 impl<F: Problem> Jacobian<F> {
     /// Initializes the Jacobian matrix with zeros.
     pub fn zeros(f: &F) -> Self {
-        let dim = Dynamic::new(f.domain().dim());
+        let dim = Dyn(f.domain().dim());
         Self {
             jac: OMatrix::zeros_generic(dim, dim),
         }
@@ -32,14 +32,14 @@ impl<F: System> Jacobian<F> {
     /// details.
     pub fn new<Sx, Sscale, Sfx>(
         f: &F,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
-        scale: &Vector<F::Field, Dynamic, Sscale>,
-        fx: &Vector<F::Field, Dynamic, Sfx>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
+        scale: &Vector<F::Field, Dyn, Sscale>,
+        fx: &Vector<F::Field, Dyn, Sfx>,
     ) -> Self
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Field, Dynamic>,
-        Sfx: Storage<F::Field, Dynamic>,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+        Sscale: Storage<F::Field, Dyn>,
+        Sfx: Storage<F::Field, Dyn>,
     {
         let mut jac = Self::zeros(f);
         jac.compute(f, x, scale, fx);
@@ -58,14 +58,14 @@ impl<F: System> Jacobian<F> {
     pub fn compute<Sx, Sscale, Sfx>(
         &mut self,
         f: &F,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
-        scale: &Vector<F::Field, Dynamic, Sscale>,
-        fx: &Vector<F::Field, Dynamic, Sfx>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
+        scale: &Vector<F::Field, Dyn, Sscale>,
+        fx: &Vector<F::Field, Dyn, Sfx>,
     ) -> &mut Self
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Field, Dynamic>,
-        Sfx: Storage<F::Field, Dynamic>,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+        Sscale: Storage<F::Field, Dyn>,
+        Sfx: Storage<F::Field, Dyn>,
     {
         let eps = F::Field::EPSILON_SQRT;
 
@@ -102,7 +102,7 @@ impl<F: System> Jacobian<F> {
 }
 
 impl<F: Problem> Deref for Jacobian<F> {
-    type Target = OMatrix<F::Field, Dynamic, Dynamic>;
+    type Target = OMatrix<F::Field, Dyn, Dyn>;
 
     fn deref(&self) -> &Self::Target {
         &self.jac
@@ -112,13 +112,13 @@ impl<F: Problem> Deref for Jacobian<F> {
 /// Gradient vector of a function.
 #[derive(Debug)]
 pub struct Gradient<F: Problem> {
-    grad: OVector<F::Field, Dynamic>,
+    grad: OVector<F::Field, Dyn>,
 }
 
 impl<F: Problem> Gradient<F> {
     /// Initializes the Gradient matrix with zeros.
     pub fn zeros(f: &F) -> Self {
-        let dim = Dynamic::new(f.domain().dim());
+        let dim = Dyn(f.domain().dim());
         Self {
             grad: OVector::zeros_generic(dim, U1::name()),
         }
@@ -131,13 +131,13 @@ impl<F: Function> Gradient<F> {
     /// details.
     pub fn new<Sx, Sscale>(
         f: &F,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
-        scale: &Vector<F::Field, Dynamic, Sscale>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
+        scale: &Vector<F::Field, Dyn, Sscale>,
         fx: F::Field,
     ) -> Self
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Field, Dynamic>,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+        Sscale: Storage<F::Field, Dyn>,
     {
         let mut grad = Self::zeros(f);
         grad.compute(f, x, scale, fx);
@@ -156,13 +156,13 @@ impl<F: Function> Gradient<F> {
     pub fn compute<Sx, Sscale>(
         &mut self,
         f: &F,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
-        scale: &Vector<F::Field, Dynamic, Sscale>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
+        scale: &Vector<F::Field, Dyn, Sscale>,
         fx: F::Field,
     ) -> &mut Self
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Field, Dynamic>,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+        Sscale: Storage<F::Field, Dyn>,
     {
         let eps = F::Field::EPSILON_SQRT;
 
@@ -190,7 +190,7 @@ impl<F: Function> Gradient<F> {
 }
 
 impl<F: Problem> Deref for Gradient<F> {
-    type Target = OVector<F::Field, Dynamic>;
+    type Target = OVector<F::Field, Dyn>;
 
     fn deref(&self) -> &Self::Target {
         &self.grad
@@ -200,15 +200,15 @@ impl<F: Problem> Deref for Gradient<F> {
 /// Hessian matrix of a system.
 #[derive(Debug)]
 pub struct Hessian<F: Problem> {
-    hes: OMatrix<F::Field, Dynamic, Dynamic>,
-    steps: OVector<F::Field, Dynamic>,
-    neighbors: OVector<F::Field, Dynamic>,
+    hes: OMatrix<F::Field, Dyn, Dyn>,
+    steps: OVector<F::Field, Dyn>,
+    neighbors: OVector<F::Field, Dyn>,
 }
 
 impl<F: Problem> Hessian<F> {
     /// Initializes the Hessian matrix with zeros.
     pub fn zeros(f: &F) -> Self {
-        let dim = Dynamic::new(f.domain().dim());
+        let dim = Dyn(f.domain().dim());
         Self {
             hes: OMatrix::zeros_generic(dim, dim),
             steps: OVector::zeros_generic(dim, U1::name()),
@@ -223,13 +223,13 @@ impl<F: Function> Hessian<F> {
     /// details.
     pub fn new<Sx, Sscale>(
         f: &F,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
-        scale: &Vector<F::Field, Dynamic, Sscale>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
+        scale: &Vector<F::Field, Dyn, Sscale>,
         fx: F::Field,
     ) -> Self
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Field, Dynamic>,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+        Sscale: Storage<F::Field, Dyn>,
     {
         let mut hes = Self::zeros(f);
         hes.compute(f, x, scale, fx);
@@ -248,13 +248,13 @@ impl<F: Function> Hessian<F> {
     pub fn compute<Sx, Sscale>(
         &mut self,
         f: &F,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
-        scale: &Vector<F::Field, Dynamic, Sscale>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
+        scale: &Vector<F::Field, Dyn, Sscale>,
         fx: F::Field,
     ) -> &mut Self
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sscale: Storage<F::Field, Dynamic>,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+        Sscale: Storage<F::Field, Dyn>,
     {
         let eps = F::Field::EPSILON_CBRT;
 
@@ -316,7 +316,7 @@ impl<F: Function> Hessian<F> {
 }
 
 impl<F: Problem> Deref for Hessian<F> {
-    type Target = OMatrix<F::Field, Dynamic, Dynamic>;
+    type Target = OMatrix<F::Field, Dyn, Dyn>;
 
     fn deref(&self) -> &Self::Target {
         &self.hes
@@ -332,7 +332,7 @@ mod tests {
     };
 
     use approx::assert_abs_diff_eq;
-    use nalgebra::{dmatrix, dvector, Dynamic};
+    use nalgebra::{dmatrix, dvector, Dyn};
 
     struct MixedVars;
 
@@ -345,9 +345,9 @@ mod tests {
     }
 
     impl Function for MixedVars {
-        fn apply<Sx>(&self, x: &Vector<Self::Field, Dynamic, Sx>) -> Self::Field
+        fn apply<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
         where
-            Sx: Storage<Self::Field, Dynamic> + IsContiguous,
+            Sx: Storage<Self::Field, Dyn> + IsContiguous,
         {
             // A simple, arbitrary function that produces Hessian matrix with
             // non-zero corners.

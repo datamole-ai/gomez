@@ -26,7 +26,7 @@ use log::debug;
 use nalgebra::{
     convert,
     storage::{Storage, StorageMut},
-    ComplexField, Dim, DimName, Dynamic, IsContiguous, OVector, RealField, Vector, U1,
+    ComplexField, Dim, DimName, Dyn, IsContiguous, OVector, RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
 use thiserror::Error;
@@ -129,12 +129,12 @@ impl<F: Problem> NelderMeadOptions<F> {
 /// Nelder-Mead solver. See [module](self) documentation for more details.
 pub struct NelderMead<F: Problem> {
     options: NelderMeadOptions<F>,
-    scale: OVector<F::Field, Dynamic>,
-    centroid: OVector<F::Field, Dynamic>,
-    reflection: OVector<F::Field, Dynamic>,
-    expansion: OVector<F::Field, Dynamic>,
-    contraction: OVector<F::Field, Dynamic>,
-    simplex: Vec<OVector<F::Field, Dynamic>>,
+    scale: OVector<F::Field, Dyn>,
+    centroid: OVector<F::Field, Dyn>,
+    reflection: OVector<F::Field, Dyn>,
+    expansion: OVector<F::Field, Dyn>,
+    contraction: OVector<F::Field, Dyn>,
+    simplex: Vec<OVector<F::Field, Dyn>>,
     errors: Vec<F::Field>,
     sort_perm: Vec<usize>,
 }
@@ -147,7 +147,7 @@ impl<F: Problem> NelderMead<F> {
 
     /// Initializes Nelder-Mead solver with given options.
     pub fn with_options(_: &F, dom: &Domain<F::Field>, mut options: NelderMeadOptions<F>) -> Self {
-        let dim = Dynamic::new(dom.dim());
+        let dim = Dyn(dom.dim());
 
         options.overwrite_coeffs(dom);
 
@@ -194,10 +194,10 @@ impl<F: Function> NelderMead<F> {
         &mut self,
         f: &F,
         dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
     ) -> Result<F::Field, NelderMeadError>
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
     {
         let NelderMeadOptions {
             reflection_coeff,
@@ -458,10 +458,10 @@ impl<F: Function> Optimizer<F> for NelderMead<F> {
         &mut self,
         f: &F,
         dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
     ) -> Result<F::Field, Self::Error>
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
     {
         self.next_inner(f, dom, x)
     }
@@ -476,12 +476,12 @@ impl<F: System + Function> Solver<F> for NelderMead<F> {
         &mut self,
         f: &F,
         dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
-        fx: &mut Vector<F::Field, Dynamic, Sfx>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
+        fx: &mut Vector<F::Field, Dyn, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sfx: StorageMut<F::Field, Dynamic>,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+        Sfx: StorageMut<F::Field, Dyn>,
     {
         self.next_inner(f, dom, x)?;
         f.eval(x, fx);

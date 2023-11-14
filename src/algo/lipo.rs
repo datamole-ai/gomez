@@ -13,8 +13,7 @@ use fastrand::Rng;
 use getset::{CopyGetters, Setters};
 use log::{debug, trace};
 use nalgebra::{
-    convert, try_convert, ComplexField, DimName, Dynamic, IsContiguous, OVector, StorageMut,
-    Vector, U1,
+    convert, try_convert, ComplexField, DimName, Dyn, IsContiguous, OVector, StorageMut, Vector, U1,
 };
 use num_traits::{One, Zero};
 use thiserror::Error;
@@ -77,15 +76,15 @@ impl<F: Problem> Default for LipoOptions<F> {
 pub struct Lipo<F: Problem> {
     options: LipoOptions<F>,
     alpha: F::Field,
-    xs: Vec<OVector<F::Field, Dynamic>>,
+    xs: Vec<OVector<F::Field, Dyn>>,
     ys: Vec<F::Field>,
     best: usize,
     k: F::Field,
     k_inf: F::Field,
     rng: Rng,
     p_explore: f64,
-    tmp: OVector<F::Field, Dynamic>,
-    x_tmp: OVector<F::Field, Dynamic>,
+    tmp: OVector<F::Field, Dyn>,
+    x_tmp: OVector<F::Field, Dyn>,
     local_optimizer: NelderMead<F>,
     iter: usize,
 }
@@ -98,7 +97,7 @@ impl<F: Problem> Lipo<F> {
 
     /// Initializes LIPO solver with given options.
     pub fn with_options(f: &F, dom: &Domain<F::Field>, options: LipoOptions<F>, rng: Rng) -> Self {
-        let dim = Dynamic::new(dom.dim());
+        let dim = Dyn(dom.dim());
 
         let p_explore = options.p_explore.clamp(0.0, 1.0);
 
@@ -141,7 +140,7 @@ impl<F: Problem> Lipo<F> {
     /// the LIPO solver gives extra information for free.
     pub fn add_evaluation(
         &mut self,
-        x: OVector<F::Field, Dynamic>,
+        x: OVector<F::Field, Dyn>,
         y: F::Field,
     ) -> Result<(), LipoError> {
         let alpha = self.alpha;
@@ -216,10 +215,10 @@ where
         &mut self,
         f: &F,
         dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
     ) -> Result<F::Field, LipoError>
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
     {
         let LipoOptions {
             sampling_trials,
@@ -388,10 +387,10 @@ where
         &mut self,
         f: &F,
         dom: &Domain<<F>::Field>,
-        x: &mut Vector<<F>::Field, Dynamic, Sx>,
+        x: &mut Vector<<F>::Field, Dyn, Sx>,
     ) -> Result<<F>::Field, Self::Error>
     where
-        Sx: StorageMut<<F>::Field, Dynamic> + IsContiguous,
+        Sx: StorageMut<<F>::Field, Dyn> + IsContiguous,
     {
         self.next_inner(f, dom, x)
     }
@@ -409,12 +408,12 @@ where
         &mut self,
         f: &F,
         dom: &Domain<<F>::Field>,
-        x: &mut Vector<<F>::Field, Dynamic, Sx>,
-        fx: &mut Vector<<F>::Field, Dynamic, Sfx>,
+        x: &mut Vector<<F>::Field, Dyn, Sx>,
+        fx: &mut Vector<<F>::Field, Dyn, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<<F>::Field, Dynamic> + IsContiguous,
-        Sfx: StorageMut<<F>::Field, Dynamic>,
+        Sx: StorageMut<<F>::Field, Dyn> + IsContiguous,
+        Sfx: StorageMut<<F>::Field, Dyn>,
     {
         self.next_inner(f, dom, x)?;
         f.eval(x, fx);

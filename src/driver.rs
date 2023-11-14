@@ -66,7 +66,7 @@
 //! ```rust
 //! # use gomez::nalgebra as na;
 //! # use gomez::{Domain, Problem, SolverDriver, System};
-//! # use na::{Dynamic, IsContiguous};
+//! # use na::{Dyn, IsContiguous};
 //! #
 //! # struct MySystem;
 //! #
@@ -87,11 +87,11 @@
 //! # impl System for MySystem {
 //! #     fn eval<Sx, Sfx>(
 //! #         &self,
-//! #         x: &na::Vector<Self::Field, Dynamic, Sx>,
-//! #         fx: &mut na::Vector<Self::Field, Dynamic, Sfx>,
+//! #         x: &na::Vector<Self::Field, Dyn, Sx>,
+//! #         fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
 //! #     ) where
-//! #         Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
-//! #         Sfx: na::storage::StorageMut<Self::Field, Dynamic>,
+//! #         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
+//! #         Sfx: na::storage::StorageMut<Self::Field, Dyn>,
 //! #     {
 //! #         fx[0] = x[0] + x[1] + 1.0;
 //! #         fx[1] = (x[0] + x[1] - 1.0).powi(2);
@@ -111,7 +111,7 @@
 //! ```rust
 //! # use gomez::nalgebra as na;
 //! # use gomez::{Domain, Problem, SolverDriver, System};
-//! # use na::{Dynamic, IsContiguous};
+//! # use na::{Dyn, IsContiguous};
 //! #
 //! # struct MySystem;
 //! #
@@ -132,11 +132,11 @@
 //! # impl System for MySystem {
 //! #     fn eval<Sx, Sfx>(
 //! #         &self,
-//! #         x: &na::Vector<Self::Field, Dynamic, Sx>,
-//! #         fx: &mut na::Vector<Self::Field, Dynamic, Sfx>,
+//! #         x: &na::Vector<Self::Field, Dyn, Sx>,
+//! #         fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
 //! #     ) where
-//! #         Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
-//! #         Sfx: na::storage::StorageMut<Self::Field, Dynamic>,
+//! #         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
+//! #         Sfx: na::storage::StorageMut<Self::Field, Dyn>,
 //! #     {
 //! #         fx[0] = x[0] + x[1] + 1.0;
 //! #         fx[1] = (x[0] + x[1] - 1.0).powi(2);
@@ -154,7 +154,7 @@
 //! }
 //! ```
 
-use nalgebra::{convert, DimName, Dynamic, OVector, U1};
+use nalgebra::{convert, DimName, Dyn, OVector, U1};
 
 use crate::{algo::TrustRegion, Domain, Function, Optimizer, Problem, Solver, System};
 
@@ -162,7 +162,7 @@ struct Builder<'a, F: Problem, A> {
     f: &'a F,
     dom: Domain<F::Field>,
     algo: A,
-    x0: OVector<F::Field, Dynamic>,
+    x0: OVector<F::Field, Dyn>,
 }
 
 impl<'a, F: Problem> Builder<'a, F, TrustRegion<F>> {
@@ -170,7 +170,7 @@ impl<'a, F: Problem> Builder<'a, F, TrustRegion<F>> {
         let dom = f.domain();
         let algo = TrustRegion::new(f, &dom);
 
-        let dim = Dynamic::new(dom.dim());
+        let dim = Dyn(dom.dim());
         let x0 = OVector::from_element_generic(dim, U1::name(), convert(0.0));
 
         Self { f, dom, algo, x0 }
@@ -179,7 +179,7 @@ impl<'a, F: Problem> Builder<'a, F, TrustRegion<F>> {
 
 impl<'a, F: Problem, A> Builder<'a, F, A> {
     fn with_initial(mut self, x0: Vec<F::Field>) -> Self {
-        let dim = Dynamic::new(self.dom.dim());
+        let dim = Dyn(self.dom.dim());
         self.x0 = OVector::from_vec_generic(dim, U1::name(), x0);
         self
     }
@@ -249,8 +249,8 @@ pub struct SolverDriver<'a, F: Problem, A> {
     f: &'a F,
     dom: Domain<F::Field>,
     algo: A,
-    x: OVector<F::Field, Dynamic>,
-    fx: OVector<F::Field, Dynamic>,
+    x: OVector<F::Field, Dyn>,
+    fx: OVector<F::Field, Dyn>,
 }
 
 impl<'a, F: Problem> SolverDriver<'a, F, TrustRegion<F>> {
@@ -324,8 +324,8 @@ impl<'a, F: System, A: Solver<F>> SolverDriver<'a, F, A> {
 
 /// State of the current iteration.
 pub struct SolverIterState<'a, F: Problem> {
-    x: &'a OVector<F::Field, Dynamic>,
-    fx: &'a OVector<F::Field, Dynamic>,
+    x: &'a OVector<F::Field, Dyn>,
+    fx: &'a OVector<F::Field, Dyn>,
     iter: usize,
 }
 
@@ -395,7 +395,7 @@ pub struct OptimizerDriver<'a, F: Problem, A> {
     f: &'a F,
     dom: Domain<F::Field>,
     algo: A,
-    x: OVector<F::Field, Dynamic>,
+    x: OVector<F::Field, Dyn>,
     fx: F::Field,
 }
 
@@ -463,7 +463,7 @@ impl<'a, F: Function, A: Optimizer<F>> OptimizerDriver<'a, F, A> {
 
 /// State of the current iteration.
 pub struct OptimizerIterState<'a, F: Problem> {
-    x: &'a OVector<F::Field, Dynamic>,
+    x: &'a OVector<F::Field, Dyn>,
     fx: F::Field,
     iter: usize,
 }
