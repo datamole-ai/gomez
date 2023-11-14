@@ -1,4 +1,4 @@
-use nalgebra::{storage::Storage, Dynamic, IsContiguous, Vector};
+use nalgebra::{storage::Storage, Dyn, IsContiguous, Vector};
 
 use super::{base::Problem, system::System};
 
@@ -13,7 +13,7 @@ use super::{base::Problem, system::System};
 /// ```rust
 /// use gomez::nalgebra as na;
 /// use gomez::{Domain, Function, Problem};
-/// use na::{Dynamic, IsContiguous};
+/// use na::{Dyn, IsContiguous};
 ///
 /// // A problem is represented by a type.
 /// struct Rosenbrock {
@@ -33,9 +33,9 @@ use super::{base::Problem, system::System};
 ///
 /// impl Function for Rosenbrock {
 ///     // Apply trial values of variables to the function.
-///     fn apply<Sx>(&self, x: &na::Vector<Self::Field, Dynamic, Sx>) -> Self::Field
+///     fn apply<Sx>(&self, x: &na::Vector<Self::Field, Dyn, Sx>) -> Self::Field
 ///     where
-///         Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
+///         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
 ///     {
 ///         // Compute the function value.
 ///         (self.a - x[0]).powi(2) + self.b * (x[1] - x[0].powi(2)).powi(2)
@@ -44,18 +44,18 @@ use super::{base::Problem, system::System};
 /// ```
 pub trait Function: Problem {
     /// Calculate the function value given values of the variables.
-    fn apply<Sx>(&self, x: &Vector<Self::Field, Dynamic, Sx>) -> Self::Field
+    fn apply<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
     where
-        Sx: Storage<Self::Field, Dynamic> + IsContiguous;
+        Sx: Storage<Self::Field, Dyn> + IsContiguous;
 }
 
 impl<F> Function for F
 where
     F: System,
 {
-    fn apply<Sx>(&self, x: &Vector<Self::Field, Dynamic, Sx>) -> Self::Field
+    fn apply<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
     where
-        Sx: Storage<Self::Field, Dynamic> + IsContiguous,
+        Sx: Storage<Self::Field, Dyn> + IsContiguous,
     {
         self.norm(x)
     }

@@ -1,6 +1,6 @@
 use nalgebra::{
     storage::{Storage, StorageMut},
-    Dynamic, IsContiguous, Vector,
+    Dyn, IsContiguous, Vector,
 };
 
 use super::base::Problem;
@@ -16,7 +16,7 @@ use super::base::Problem;
 /// ```rust
 /// use gomez::nalgebra as na;
 /// use gomez::{Domain, Problem, System};
-/// use na::{Dynamic, IsContiguous};
+/// use na::{Dyn, IsContiguous};
 ///
 /// // A problem is represented by a type.
 /// struct Rosenbrock {
@@ -38,11 +38,11 @@ use super::base::Problem;
 ///     // Evaluate trial values of variables to the system.
 ///     fn eval<Sx, Sfx>(
 ///         &self,
-///         x: &na::Vector<Self::Field, Dynamic, Sx>,
-///         fx: &mut na::Vector<Self::Field, Dynamic, Sfx>,
+///         x: &na::Vector<Self::Field, Dyn, Sx>,
+///         fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
 ///     ) where
-///         Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
-///         Sfx: na::storage::StorageMut<Self::Field, Dynamic>,
+///         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
+///         Sfx: na::storage::StorageMut<Self::Field, Dyn>,
 ///     {
 ///         // Compute the residuals of all equations.
 ///         fx[0] = (self.a - x[0]).powi(2);
@@ -54,20 +54,20 @@ pub trait System: Problem {
     /// Calculate the residuals of the system given values of the variables.
     fn eval<Sx, Sfx>(
         &self,
-        x: &Vector<Self::Field, Dynamic, Sx>,
-        fx: &mut Vector<Self::Field, Dynamic, Sfx>,
+        x: &Vector<Self::Field, Dyn, Sx>,
+        fx: &mut Vector<Self::Field, Dyn, Sfx>,
     ) where
-        Sx: Storage<Self::Field, Dynamic> + IsContiguous,
-        Sfx: StorageMut<Self::Field, Dynamic>;
+        Sx: Storage<Self::Field, Dyn> + IsContiguous,
+        Sfx: StorageMut<Self::Field, Dyn>;
 
     /// Calculate the residuals vector norm.
     ///
     /// The default implementation allocates a temporary vector for the
     /// residuals on every call. If you plan to solve the system by an
     /// optimizer, consider overriding the default implementation.
-    fn norm<Sx>(&self, x: &Vector<Self::Field, Dynamic, Sx>) -> Self::Field
+    fn norm<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
     where
-        Sx: Storage<Self::Field, Dynamic> + IsContiguous,
+        Sx: Storage<Self::Field, Dyn> + IsContiguous,
     {
         let mut fx = x.clone_owned();
         self.eval(x, &mut fx);

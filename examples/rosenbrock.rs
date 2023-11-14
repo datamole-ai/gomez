@@ -1,6 +1,6 @@
 use gomez::nalgebra as na;
 use gomez::{Domain, Problem, SolverDriver, System};
-use na::{Dynamic, IsContiguous};
+use na::{Dyn, IsContiguous};
 
 // https://en.wikipedia.org/wiki/Rosenbrock_function
 struct Rosenbrock {
@@ -19,11 +19,11 @@ impl Problem for Rosenbrock {
 impl System for Rosenbrock {
     fn eval<Sx, Sfx>(
         &self,
-        x: &na::Vector<Self::Field, Dynamic, Sx>,
-        fx: &mut na::Vector<Self::Field, Dynamic, Sfx>,
+        x: &na::Vector<Self::Field, Dyn, Sx>,
+        fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
     ) where
-        Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
-        Sfx: na::storage::StorageMut<Self::Field, Dynamic>,
+        Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
+        Sfx: na::storage::StorageMut<Self::Field, Dyn>,
     {
         fx[0] = (self.a - x[0]).powi(2);
         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);

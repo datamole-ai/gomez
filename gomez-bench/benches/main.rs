@@ -5,7 +5,7 @@ fn main() {
 use gomez::{
     algo::{NelderMead, TrustRegion},
     nalgebra as na,
-    nalgebra::Dynamic,
+    nalgebra::Dyn,
     testing::*,
     Domain, Problem, Solver,
 };
@@ -168,7 +168,7 @@ mod bullard_biegler {
 fn bench_solve<F, S, GF, GS>(bencher: divan::Bencher, with_system: GF, with_solver: GS)
 where
     GF: Fn() -> (F, usize),
-    GS: Fn(&F, &Domain<F::Field>, &na::OVector<F::Field, Dynamic>) -> S,
+    GS: Fn(&F, &Domain<F::Field>, &na::OVector<F::Field, Dyn>) -> S,
     F: TestSystem,
     S: Solver<F>,
 {
@@ -204,7 +204,7 @@ where
 fn with_trust_region<F>(
     f: &F,
     dom: &Domain<F::Field>,
-    _: &na::OVector<F::Field, Dynamic>,
+    _: &na::OVector<F::Field, Dyn>,
 ) -> TrustRegion<F>
 where
     F: Problem,
@@ -215,7 +215,7 @@ where
 fn with_nelder_mead<F>(
     f: &F,
     dom: &Domain<F::Field>,
-    _: &na::OVector<F::Field, Dynamic>,
+    _: &na::OVector<F::Field, Dyn>,
 ) -> NelderMead<F>
 where
     F: Problem,
@@ -226,7 +226,7 @@ where
 fn with_gsl_hybrids<F>(
     f: &F,
     _: &Domain<F::Field>,
-    x: &na::OVector<F::Field, Dynamic>,
+    x: &na::OVector<F::Field, Dyn>,
 ) -> GslSolverWrapper<GslFunctionWrapper<F>>
 where
     F: TestSystem<Field = f64> + Clone,
@@ -251,14 +251,14 @@ impl<F> GslFunctionWrapper<F> {
 impl<F: TestSystem<Field = f64>> GslFunction for GslFunctionWrapper<F> {
     fn eval(&self, x: &GslVec, f: &mut GslVec) -> GslStatus {
         use na::DimName;
-        let dim = Dynamic::new(x.len());
+        let dim = Dyn(x.len());
 
-        let x = na::MatrixSlice::<f64, Dynamic, na::U1>::from_slice_generic(
+        let x = na::MatrixView::<f64, Dyn, na::U1>::from_slice_generic(
             x.as_slice(),
             dim,
             na::U1::name(),
         );
-        let mut fx = na::MatrixSliceMut::<f64, Dynamic, na::U1>::from_slice_generic(
+        let mut fx = na::MatrixViewMut::<f64, Dyn, na::U1>::from_slice_generic(
             f.as_mut_slice(),
             dim,
             na::U1::name(),
@@ -294,12 +294,12 @@ impl<F: TestSystem<Field = f64>> Solver<F> for GslSolverWrapper<GslFunctionWrapp
         &mut self,
         _f: &F,
         _dom: &Domain<F::Field>,
-        x: &mut na::Vector<F::Field, Dynamic, Sx>,
-        fx: &mut na::Vector<F::Field, Dynamic, Sfx>,
+        x: &mut na::Vector<F::Field, Dyn, Sx>,
+        fx: &mut na::Vector<F::Field, Dyn, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: na::storage::StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sfx: na::storage::StorageMut<F::Field, Dynamic>,
+        Sx: na::storage::StorageMut<F::Field, Dyn> + IsContiguous,
+        Sfx: na::storage::StorageMut<F::Field, Dyn>,
     {
         let result = self.solver.step().to_result();
         x.copy_from_slice(self.solver.root());

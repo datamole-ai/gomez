@@ -30,7 +30,7 @@
 use getset::{CopyGetters, Setters};
 use log::debug;
 use nalgebra::{
-    convert, storage::StorageMut, ComplexField, DimName, Dynamic, IsContiguous, OMatrix, OVector,
+    convert, storage::StorageMut, ComplexField, DimName, Dyn, IsContiguous, OMatrix, OVector,
     RealField, Vector, U1,
 };
 use num_traits::{One, Zero};
@@ -121,17 +121,17 @@ pub struct TrustRegion<F: Problem> {
     options: TrustRegionOptions<F>,
     delta: F::Field,
     mu: F::Field,
-    scale: OVector<F::Field, Dynamic>,
+    scale: OVector<F::Field, Dyn>,
     jac: Jacobian<F>,
     grad: Gradient<F>,
     hes: Hessian<F>,
-    q_tr_fx_neg: OVector<F::Field, Dynamic>,
-    newton: OVector<F::Field, Dynamic>,
-    grad_neg: OVector<F::Field, Dynamic>,
-    cauchy: OVector<F::Field, Dynamic>,
-    jac_tr_jac: OMatrix<F::Field, Dynamic, Dynamic>,
-    p: OVector<F::Field, Dynamic>,
-    temp: OVector<F::Field, Dynamic>,
+    q_tr_fx_neg: OVector<F::Field, Dyn>,
+    newton: OVector<F::Field, Dyn>,
+    grad_neg: OVector<F::Field, Dyn>,
+    cauchy: OVector<F::Field, Dyn>,
+    jac_tr_jac: OMatrix<F::Field, Dyn, Dyn>,
+    p: OVector<F::Field, Dyn>,
+    temp: OVector<F::Field, Dyn>,
     iter: usize,
     rejections_cnt: usize,
 }
@@ -144,7 +144,7 @@ impl<F: Problem> TrustRegion<F> {
 
     /// Initializes trust region solver with given options.
     pub fn with_options(f: &F, dom: &Domain<F::Field>, options: TrustRegionOptions<F>) -> Self {
-        let dim = Dynamic::new(dom.dim());
+        let dim = Dyn(dom.dim());
         let delta_init = match options.delta_init {
             DeltaInit::Fixed(fixed) => fixed,
             // Zero is recognized in the function `next`.
@@ -207,12 +207,12 @@ impl<F: System> Solver<F> for TrustRegion<F> {
         &mut self,
         f: &F,
         dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
-        fx: &mut Vector<F::Field, Dynamic, Sfx>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
+        fx: &mut Vector<F::Field, Dyn, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sfx: StorageMut<F::Field, Dynamic>,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+        Sfx: StorageMut<F::Field, Dyn>,
     {
         let TrustRegionOptions {
             delta_min,
@@ -245,9 +245,9 @@ impl<F: System> Solver<F> for TrustRegion<F> {
         } = self;
 
         #[allow(clippy::needless_late_init)]
-        let scaled_newton: &mut OVector<F::Field, Dynamic>;
-        let scale_inv2: &mut OVector<F::Field, Dynamic>;
-        let cauchy_scaled: &mut OVector<F::Field, Dynamic>;
+        let scaled_newton: &mut OVector<F::Field, Dyn>;
+        let scale_inv2: &mut OVector<F::Field, Dyn>;
+        let cauchy_scaled: &mut OVector<F::Field, Dyn>;
 
         #[derive(Debug, Clone, Copy, PartialEq)]
         enum StepType {
@@ -689,10 +689,10 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
         &mut self,
         f: &F,
         dom: &Domain<<F>::Field>,
-        x: &mut Vector<<F>::Field, Dynamic, Sx>,
+        x: &mut Vector<<F>::Field, Dyn, Sx>,
     ) -> Result<<F>::Field, Self::Error>
     where
-        Sx: StorageMut<<F>::Field, Dynamic> + IsContiguous,
+        Sx: StorageMut<<F>::Field, Dyn> + IsContiguous,
     {
         let TrustRegionOptions {
             delta_min,
@@ -721,9 +721,9 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
         } = self;
 
         #[allow(clippy::needless_late_init)]
-        let scaled_newton: &mut OVector<F::Field, Dynamic>;
-        let scale_inv2_grad: &mut OVector<F::Field, Dynamic>;
-        let cauchy_scaled: &mut OVector<F::Field, Dynamic>;
+        let scaled_newton: &mut OVector<F::Field, Dyn>;
+        let scale_inv2_grad: &mut OVector<F::Field, Dyn>;
+        let cauchy_scaled: &mut OVector<F::Field, Dyn>;
 
         #[derive(Debug, Clone, Copy, PartialEq)]
         enum StepType {

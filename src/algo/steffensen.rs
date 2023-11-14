@@ -15,7 +15,7 @@
 use std::marker::PhantomData;
 
 use getset::{CopyGetters, Setters};
-use nalgebra::{convert, storage::StorageMut, Dynamic, IsContiguous, Vector};
+use nalgebra::{convert, storage::StorageMut, Dyn, IsContiguous, Vector};
 use thiserror::Error;
 
 use crate::core::{Domain, Problem, Solver, System};
@@ -88,12 +88,12 @@ impl<F: System> Solver<F> for Steffensen<F> {
         &mut self,
         f: &F,
         dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dynamic, Sx>,
-        fx: &mut Vector<F::Field, Dynamic, Sfx>,
+        x: &mut Vector<F::Field, Dyn, Sx>,
+        fx: &mut Vector<F::Field, Dyn, Sfx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-        Sfx: StorageMut<F::Field, Dynamic>,
+        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+        Sfx: StorageMut<F::Field, Dyn>,
     {
         if dom.dim() != 1 {
             return Err(SteffensenError::InvalidDimensionality);
@@ -214,7 +214,7 @@ mod tests {
         let eps = convert(1e-12);
         let solver = Steffensen::new(&f, &dom);
 
-        let x = OVector::from_element_generic(Dynamic::new(dom.dim()), U1::name(), 0.0);
+        let x = OVector::from_element_generic(Dyn(dom.dim()), U1::name(), 0.0);
         assert!(f.is_root(&solve(&f, &dom, solver, x, 40, eps).unwrap(), eps));
     }
 }

@@ -1,7 +1,7 @@
 //! Various analyses for supporting the solving.
 
 use nalgebra::{
-    convert, storage::StorageMut, ComplexField, DimName, Dynamic, IsContiguous, OVector, RealField,
+    convert, storage::StorageMut, ComplexField, DimName, Dyn, IsContiguous, OVector, RealField,
     Vector, U1,
 };
 
@@ -39,15 +39,15 @@ pub fn estimate_magnitude_from_bounds<T: RealField + Copy>(lower: T, upper: T) -
 pub fn detect_non_linear_vars_in_system<F, Sx, Sfx>(
     f: &F,
     dom: &Domain<F::Field>,
-    x: &mut Vector<F::Field, Dynamic, Sx>,
-    fx: &mut Vector<F::Field, Dynamic, Sfx>,
+    x: &mut Vector<F::Field, Dyn, Sx>,
+    fx: &mut Vector<F::Field, Dyn, Sfx>,
 ) -> Vec<usize>
 where
     F: System,
-    Sx: StorageMut<F::Field, Dynamic> + IsContiguous,
-    Sfx: StorageMut<F::Field, Dynamic>,
+    Sx: StorageMut<F::Field, Dyn> + IsContiguous,
+    Sfx: StorageMut<F::Field, Dyn>,
 {
-    let dim = Dynamic::new(dom.dim());
+    let dim = Dyn(dom.dim());
     let scale = dom
         .scale()
         .map(|scale| OVector::from_iterator_generic(dim, U1::name(), scale.iter().copied()))
@@ -136,11 +136,11 @@ mod tests {
     impl System for NonLinearTest {
         fn eval<Sx, Sfx>(
             &self,
-            x: &Vector<Self::Field, Dynamic, Sx>,
-            fx: &mut Vector<Self::Field, Dynamic, Sfx>,
+            x: &Vector<Self::Field, Dyn, Sx>,
+            fx: &mut Vector<Self::Field, Dyn, Sfx>,
         ) where
-            Sx: nalgebra::Storage<Self::Field, Dynamic> + IsContiguous,
-            Sfx: StorageMut<Self::Field, Dynamic>,
+            Sx: nalgebra::Storage<Self::Field, Dyn> + IsContiguous,
+            Sfx: StorageMut<Self::Field, Dyn>,
         {
             fx[0] = x[0];
             fx[1] = x[1].powi(2);

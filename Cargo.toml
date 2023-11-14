@@ -15,7 +15,7 @@ edition = "2021"
 testing = []
 
 [dependencies]
-nalgebra = "0.31"
+nalgebra = "0.32.3"
 approx = "0.5"
 num-traits = "0.2"
 thiserror = "1"

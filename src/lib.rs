@@ -69,7 +69,7 @@
 //! // Gomez is based on `nalgebra` crate.
 //! use gomez::nalgebra as na;
 //! use gomez::{Domain, Problem, System};
-//! use na::{Dynamic, IsContiguous};
+//! use na::{Dyn, IsContiguous};
 //!
 //! // A problem is represented by a type.
 //! struct Rosenbrock {
@@ -92,11 +92,11 @@
 //!     // Evaluate trial values of variables to the system.
 //!     fn eval<Sx, Sfx>(
 //!         &self,
-//!         x: &na::Vector<Self::Field, Dynamic, Sx>,
-//!         fx: &mut na::Vector<Self::Field, Dynamic, Sfx>,
+//!         x: &na::Vector<Self::Field, Dyn, Sx>,
+//!         fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
 //!     ) where
-//!         Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
-//!         Sfx: na::storage::StorageMut<Self::Field, Dynamic>,
+//!         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
+//!         Sfx: na::storage::StorageMut<Self::Field, Dyn>,
 //!     {
 //!         // Compute the residuals of all equations.
 //!         fx[0] = (self.a - x[0]).powi(2);
@@ -142,7 +142,7 @@
 //! use gomez::SolverDriver;
 //! # use gomez::nalgebra as na;
 //! # use gomez::{Domain, Problem, System};
-//! # use na::{Dynamic, IsContiguous};
+//! # use na::{Dyn, IsContiguous};
 //! #
 //! # struct Rosenbrock {
 //! #     a: f64,
@@ -160,11 +160,11 @@
 //! # impl System for Rosenbrock {
 //! #     fn eval<Sx, Sfx>(
 //! #         &self,
-//! #         x: &na::Vector<Self::Field, Dynamic, Sx>,
-//! #         fx: &mut na::Vector<Self::Field, Dynamic, Sfx>,
+//! #         x: &na::Vector<Self::Field, Dyn, Sx>,
+//! #         fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
 //! #     ) where
-//! #         Sx: na::storage::Storage<Self::Field, Dynamic> + IsContiguous,
-//! #         Sfx: na::storage::StorageMut<Self::Field, Dynamic>,
+//! #         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
+//! #         Sfx: na::storage::StorageMut<Self::Field, Dyn>,
 //! #     {
 //! #         fx[0] = (self.a - x[0]).powi(2);
 //! #         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);

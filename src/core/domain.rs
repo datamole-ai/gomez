@@ -13,9 +13,9 @@ use crate::core::Sample;
 /// Domain for a problem.
 #[derive(Clone)]
 pub struct Domain<T: RealField + Copy> {
-    lower: OVector<T, na::Dynamic>,
-    upper: OVector<T, na::Dynamic>,
-    scale: Option<OVector<T, na::Dynamic>>,
+    lower: OVector<T, na::Dyn>,
+    upper: OVector<T, na::Dyn>,
+    scale: Option<OVector<T, na::Dyn>>,
 }
 
 impl<T: RealField + Copy> Domain<T> {
@@ -24,7 +24,7 @@ impl<T: RealField + Copy> Domain<T> {
         assert!(dim > 0, "empty domain");
 
         let inf = T::from_subset(&f64::INFINITY);
-        let n = na::Dynamic::new(dim);
+        let n = na::Dyn(dim);
         let one = na::Const::<1>;
 
         Self {
@@ -54,7 +54,7 @@ impl<T: RealField + Copy> Domain<T> {
             .zip(upper.iter().copied())
             .map(|(l, u)| estimate_magnitude_from_bounds(l, u));
 
-        let dim = na::Dynamic::new(dim);
+        let dim = na::Dyn(dim);
         let scale = OVector::from_iterator_generic(dim, na::U1::name(), scale);
         let lower = OVector::from_iterator_generic(dim, na::U1::name(), lower);
         let upper = OVector::from_iterator_generic(dim, na::U1::name(), upper);
@@ -76,7 +76,7 @@ impl<T: RealField + Copy> Domain<T> {
             "scale has invalid dimension"
         );
 
-        let dim = na::Dynamic::new(self.lower.nrows());
+        let dim = na::Dyn(self.lower.nrows());
         let scale = OVector::from_iterator_generic(dim, na::U1::name(), scale);
 
         self.scale = Some(scale);
@@ -93,7 +93,7 @@ impl<T: RealField + Copy> Domain<T> {
     /// Scale can be either provided by [`Domain::with_scale`] or estimated for
     /// a constrained domain. If there is no reliable way to estimate the scale
     /// (for unconstrained system), `None` is returned.
-    pub fn scale(&self) -> Option<&OVector<T, na::Dynamic>> {
+    pub fn scale(&self) -> Option<&OVector<T, na::Dyn>> {
         self.scale.as_ref()
     }
 
