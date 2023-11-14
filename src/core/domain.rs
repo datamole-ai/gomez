@@ -11,6 +11,7 @@ use crate::analysis::estimate_magnitude_from_bounds;
 use crate::core::Sample;
 
 /// Domain for a problem.
+#[derive(Clone)]
 pub struct Domain<T: RealField + Copy> {
     lower: OVector<T, na::Dynamic>,
     upper: OVector<T, na::Dynamic>,
@@ -38,15 +39,13 @@ impl<T: RealField + Copy> Domain<T> {
     /// Positive and negative infinity can be used to indicate value unbounded
     /// in that dimension and direction. If the entire domain is unconstrained,
     /// use [`Domain::unconstrained`] instead.
-    pub fn rect(lower: OVector<T, na::Dynamic>, upper: OVector<T, na::Dynamic>) -> Self {
-        assert!(lower.ncols() == 1, "lower is not a column vector");
-        assert!(upper.ncols() == 1, "upper is not a column vector");
+    pub fn rect(lower: Vec<T>, upper: Vec<T>) -> Self {
         assert!(
-            lower.ncols() == upper.ncols(),
+            lower.len() == upper.len(),
             "lower and upper have different size"
         );
 
-        let dim = lower.nrows();
+        let dim = lower.len();
         assert!(dim > 0, "empty domain");
 
         let scale = lower
@@ -54,7 +53,11 @@ impl<T: RealField + Copy> Domain<T> {
             .copied()
             .zip(upper.iter().copied())
             .map(|(l, u)| estimate_magnitude_from_bounds(l, u));
-        let scale = OVector::from_iterator_generic(na::Dynamic::new(dim), na::Const::<1>, scale);
+
+        let dim = na::Dynamic::new(dim);
+        let scale = OVector::from_iterator_generic(dim, na::U1::name(), scale);
+        let lower = OVector::from_iterator_generic(dim, na::U1::name(), lower);
+        let upper = OVector::from_iterator_generic(dim, na::U1::name(), upper);
 
         Self {
             lower,
@@ -67,12 +70,14 @@ impl<T: RealField + Copy> Domain<T> {
     ///
     /// Scale value of a variable is the inverse of the expected magnitude of
     /// that variable.
-    pub fn with_scale(mut self, scale: OVector<T, na::Dynamic>) -> Self {
-        assert!(scale.ncols() == 1, "scale is not a column vector");
+    pub fn with_scale(mut self, scale: Vec<T>) -> Self {
         assert!(
-            scale.ncols() == self.lower.ncols(),
+            scale.len() == self.lower.nrows(),
             "scale has invalid dimension"
         );
+
+        let dim = na::Dynamic::new(self.lower.nrows());
+        let scale = OVector::from_iterator_generic(dim, na::U1::name(), scale);
 
         self.scale = Some(scale);
         self
@@ -168,12 +173,6 @@ impl<T: RealField + Copy> Domain<T> {
 impl<T: RealField + Copy> FromIterator<(T, T)> for Domain<T> {
     fn from_iter<I: IntoIterator<Item = (T, T)>>(iter: I) -> Self {
         let (lower, upper): (Vec<_>, Vec<_>) = iter.into_iter().unzip();
-
-        let n = na::Dynamic::new(lower.len());
-
-        let lower = OVector::from_vec_generic(n, na::U1::name(), lower);
-        let upper = OVector::from_vec_generic(n, na::U1::name(), upper);
-
         Self::rect(lower, upper)
     }
 }
@@ -186,11 +185,6 @@ impl<T: RealField + Copy> FromIterator<T> for Domain<T> {
             .map(|magnitude| one / magnitude)
             .collect::<Vec<_>>();
 
-        let dim = scale.len();
-        let n = na::Dynamic::new(dim);
-
-        let scale = OVector::from_vec_generic(n, na::U1::name(), scale);
-
-        Self::unconstrained(dim).with_scale(scale)
+        Self::unconstrained(scale.len()).with_scale(scale)
     }
 }
