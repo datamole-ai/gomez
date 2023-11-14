@@ -15,7 +15,7 @@
 use std::marker::PhantomData;
 
 use getset::{CopyGetters, Setters};
-use nalgebra::{storage::StorageMut, Dynamic, IsContiguous, Vector};
+use nalgebra::{convert, storage::StorageMut, Dynamic, IsContiguous, Vector};
 use thiserror::Error;
 
 use crate::core::{Domain, Problem, Solver, System};
@@ -107,6 +107,11 @@ impl<F: System> Solver<F> for Steffensen<F> {
         f.eval(x, fx);
         let fx0 = fx[0];
 
+        if fx0 == convert(0.0) {
+            // No more solving to be done.
+            return Ok(());
+        }
+
         match variant {
             SteffensenVariant::Standard => {
                 // Compute z = f(x + f(x)) and f(z).
@@ -160,7 +165,7 @@ mod tests {
 
     use crate::testing::*;
 
-    use nalgebra::convert;
+    use nalgebra::{convert, DimName, OVector, U1};
 
     #[test]
     fn sphere_standard() {
@@ -200,5 +205,16 @@ mod tests {
             let solver = Steffensen::new(&f, &dom);
             assert!(f.is_root(&solve(&f, &dom, solver, x, 25, eps).unwrap(), eps));
         }
+    }
+
+    #[test]
+    fn stop_at_zero() {
+        let f = Sphere::new(1);
+        let dom = f.domain();
+        let eps = convert(1e-12);
+        let solver = Steffensen::new(&f, &dom);
+
+        let x = OVector::from_element_generic(Dynamic::new(dom.dim()), U1::name(), 0.0);
+        assert!(f.is_root(&solve(&f, &dom, solver, x, 40, eps).unwrap(), eps));
     }
 }
