@@ -38,7 +38,7 @@ fn main() -> Result<(), String> {
 
     let tolerance = 1e-6;
 
-    let result = solver
+    let (_, fx) = solver
         .find(|state| {
             println!(
                 "iter = {}\t|| fx || = {}\tx = {:?}",
@@ -50,7 +50,7 @@ fn main() -> Result<(), String> {
         })
         .map_err(|error| format!("{error}"))?;
 
-    if result <= tolerance {
+    if fx <= tolerance {
         Ok(())
     } else {
         Err("did not converge".to_string())

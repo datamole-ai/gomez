@@ -286,21 +286,21 @@ impl<'a, F: System, A: Solver<F>> SolverDriver<'a, F, A> {
     /// Does one iteration of the process, returning the norm of the residuals
     /// in case of no error.
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<F::Field, A::Error> {
+    pub fn next(&mut self) -> Result<(&[F::Field], F::Field), A::Error> {
         self.algo
             .solve_next(self.f, &self.dom, &mut self.x, &mut self.fx)?;
-        Ok(self.fx.norm())
+        Ok((self.x.as_slice(), self.fx.norm()))
     }
 
     /// Runs the iterative process until given stopping criterion is satisfied.
-    pub fn find<C>(&mut self, stop: C) -> Result<F::Field, A::Error>
+    pub fn find<C>(&mut self, stop: C) -> Result<(&[F::Field], F::Field), A::Error>
     where
         C: Fn(SolverIterState<'_, F>) -> bool,
     {
         let mut iter = 0;
 
         loop {
-            let norm = self.next()?;
+            let norm = self.next()?.1;
 
             let state = SolverIterState {
                 x: &self.x,
@@ -309,7 +309,7 @@ impl<'a, F: System, A: Solver<F>> SolverDriver<'a, F, A> {
             };
 
             if stop(state) {
-                return Ok(norm);
+                return Ok((self.x.as_slice(), norm));
             }
 
             iter += 1;
@@ -427,19 +427,21 @@ impl<'a, F: Function, A: Optimizer<F>> OptimizerDriver<'a, F, A> {
     /// Does one iteration of the process, returning the function value in case
     /// of no error.
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<F::Field, A::Error> {
-        self.algo.opt_next(self.f, &self.dom, &mut self.x)
+    pub fn next(&mut self) -> Result<(&[F::Field], F::Field), A::Error> {
+        self.algo
+            .opt_next(self.f, &self.dom, &mut self.x)
+            .map(|fx| (self.x.as_slice(), fx))
     }
 
     /// Runs the iterative process until given stopping criterion is satisfied.
-    pub fn find<C>(&mut self, stop: C) -> Result<F::Field, A::Error>
+    pub fn find<C>(&mut self, stop: C) -> Result<(&[F::Field], F::Field), A::Error>
     where
         C: Fn(OptimizerIterState<'_, F>) -> bool,
     {
         let mut iter = 0;
 
         loop {
-            self.fx = self.next()?;
+            self.fx = self.next()?.1;
 
             let state = OptimizerIterState {
                 x: &self.x,
@@ -448,7 +450,7 @@ impl<'a, F: Function, A: Optimizer<F>> OptimizerDriver<'a, F, A> {
             };
 
             if stop(state) {
-                return Ok(self.fx);
+                return Ok((self.x.as_slice(), self.fx));
             }
 
             iter += 1;
@@ -514,7 +516,7 @@ mod tests {
             .build();
 
         let tolerance = 1e-6;
-        let norm = solver
+        let (_, norm) = solver
             .find(|state| state.iter() >= 100 || state.norm() < tolerance)
             .unwrap();
 
@@ -532,7 +534,7 @@ mod tests {
             .build();
 
         let tolerance = 1e-6;
-        let norm = solver
+        let (_, norm) = solver
             .find(|state| state.iter() >= 100 || state.norm() < tolerance)
             .unwrap();
 
@@ -569,11 +571,11 @@ mod tests {
             .build();
 
         let tolerance = 1e-6;
-        let norm = optimizer
+        let (_, value) = optimizer
             .find(|state| state.iter() >= 100 || state.fx() < tolerance)
             .unwrap();
 
-        assert!(norm <= tolerance);
+        assert!(value <= tolerance);
     }
 
     #[test]
@@ -587,11 +589,11 @@ mod tests {
             .build();
 
         let tolerance = 1e-6;
-        let norm = optimizer
+        let (_, value) = optimizer
             .find(|state| state.iter() >= 100 || state.fx() < tolerance)
             .unwrap();
 
-        assert!(norm <= tolerance);
+        assert!(value <= tolerance);
     }
 
     #[test]
