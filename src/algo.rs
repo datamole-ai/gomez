@@ -1,4 +1,4 @@
-//! The collection of implemented solvers.
+//! The collection of implemented algorithms.
 
 pub mod lipo;
 pub mod nelder_mead;

@@ -1,8 +1,8 @@
-//! High-level API for solving and optimization.
+//! High-level API for optimization and solving.
 //!
 //! This module contains "drivers" that encapsulate all internal state and
-//! provide a simple API to run the iterative process for solving or
-//! optimization. This documentation describes usage for the solving systems of
+//! provide a simple API to run the iterative process for optimization or
+//! solving. This documentation describes usage for the solving systems of
 //! equations, but the API is basically the same for optimization.
 //!
 //! The simplest way of using the driver is to initialize it with the defaults:
@@ -27,9 +27,9 @@
 //! #     }
 //! # }
 //!
-//! let f = MySystem::new();
+//! let r = MySystem::new();
 //!
-//! let mut solver = SolverDriver::new(&f);
+//! let mut solver = SolverDriver::new(&r);
 //! ```
 //! If you need to specify additional settings, use the builder:
 //!
@@ -53,9 +53,9 @@
 //! #     }
 //! # }
 //!
-//! let f = MySystem::new();
+//! let r = MySystem::new();
 //!
-//! let mut solver = SolverDriver::builder(&f)
+//! let mut solver = SolverDriver::builder(&r)
 //!     .with_initial(vec![10.0, -10.0])
 //!     .with_algo(gomez::algo::NelderMead::new)
 //!     .build();
@@ -85,23 +85,24 @@
 //! # }
 //! #
 //! # impl System for MySystem {
-//! #     fn eval<Sx, Sfx>(
+//! #     fn eval<Sx, Srx>(
 //! #         &self,
 //! #         x: &na::Vector<Self::Field, Dyn, Sx>,
-//! #         fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
+//! #         rx: &mut na::Vector<Self::Field, Dyn, Srx>,
 //! #     ) where
 //! #         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
-//! #         Sfx: na::storage::StorageMut<Self::Field, Dyn>,
+//! #         Srx: na::storage::StorageMut<Self::Field, Dyn>,
 //! #     {
-//! #         fx[0] = x[0] + x[1] + 1.0;
-//! #         fx[1] = (x[0] + x[1] - 1.0).powi(2);
+//! #         rx[0] = x[0] + x[1] + 1.0;
+//! #         rx[1] = (x[0] + x[1] - 1.0).powi(2);
 //! #     }
 //! # }
 //! #
-//! # let f = MySystem::new();
+//! # let r = MySystem::new();
 //! #
-//! # let mut solver = SolverDriver::new(&f);
+//! # let mut solver = SolverDriver::new(&r);
 //! #
+//! // Solution or solver error.
 //! let result = solver.find(|state| state.norm() <= 1e-6 || state.iter() >= 100);
 //! ```
 //!
@@ -130,25 +131,26 @@
 //! # }
 //! #
 //! # impl System for MySystem {
-//! #     fn eval<Sx, Sfx>(
+//! #     fn eval<Sx, Srx>(
 //! #         &self,
 //! #         x: &na::Vector<Self::Field, Dyn, Sx>,
-//! #         fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
+//! #         rx: &mut na::Vector<Self::Field, Dyn, Srx>,
 //! #     ) where
 //! #         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
-//! #         Sfx: na::storage::StorageMut<Self::Field, Dyn>,
+//! #         Srx: na::storage::StorageMut<Self::Field, Dyn>,
 //! #     {
-//! #         fx[0] = x[0] + x[1] + 1.0;
-//! #         fx[1] = (x[0] + x[1] - 1.0).powi(2);
+//! #         rx[0] = x[0] + x[1] + 1.0;
+//! #         rx[1] = (x[0] + x[1] - 1.0).powi(2);
 //! #     }
 //! # }
 //! #
-//! # let f = MySystem::new();
+//! # let r = MySystem::new();
 //! #
-//! # let mut solver = SolverDriver::new(&f);
+//! # let mut solver = SolverDriver::new(&r);
 //! #
 //! loop {
-//!     let norm = solver.next().expect("no solver error");
+//!     // Current point or solver error.
+//!     let result = solver.next();
 //!     // ...
 //! #   break;
 //! }
@@ -158,40 +160,40 @@ use nalgebra::{convert, DimName, Dyn, OVector, U1};
 
 use crate::{algo::TrustRegion, Domain, Function, Optimizer, Problem, Solver, System};
 
-struct Builder<'a, F: Problem, A> {
-    f: &'a F,
-    dom: Domain<F::Field>,
+struct Builder<'a, P: Problem, A> {
+    p: &'a P,
+    dom: Domain<P::Field>,
     algo: A,
-    x0: OVector<F::Field, Dyn>,
+    x0: OVector<P::Field, Dyn>,
 }
 
-impl<'a, F: Problem> Builder<'a, F, TrustRegion<F>> {
-    fn new(f: &'a F) -> Self {
-        let dom = f.domain();
-        let algo = TrustRegion::new(f, &dom);
+impl<'a, P: Problem> Builder<'a, P, TrustRegion<P>> {
+    fn new(p: &'a P) -> Self {
+        let dom = p.domain();
+        let algo = TrustRegion::new(p, &dom);
 
         let dim = Dyn(dom.dim());
         let x0 = OVector::from_element_generic(dim, U1::name(), convert(0.0));
 
-        Self { f, dom, algo, x0 }
+        Self { p, dom, algo, x0 }
     }
 }
 
-impl<'a, F: Problem, A> Builder<'a, F, A> {
-    fn with_initial(mut self, x0: Vec<F::Field>) -> Self {
+impl<'a, P: Problem, A> Builder<'a, P, A> {
+    fn with_initial(mut self, x0: Vec<P::Field>) -> Self {
         let dim = Dyn(self.dom.dim());
         self.x0 = OVector::from_vec_generic(dim, U1::name(), x0);
         self
     }
 
-    fn with_algo<S2, FA>(self, factory: FA) -> Builder<'a, F, S2>
+    fn with_algo<S2, FA>(self, factory: FA) -> Builder<'a, P, S2>
     where
-        FA: FnOnce(&F, &Domain<F::Field>) -> S2,
+        FA: FnOnce(&P, &Domain<P::Field>) -> S2,
     {
-        let algo = factory(self.f, &self.dom);
+        let algo = factory(self.p, &self.dom);
 
         Builder {
-            f: self.f,
+            p: self.p,
             dom: self.dom,
             algo,
             x0: self.x0,
@@ -205,11 +207,11 @@ impl<'a, F: Problem, A> Builder<'a, F, A> {
 }
 
 /// Builder for the [`SolverDriver`].
-pub struct SolverBuilder<'a, F: Problem, A>(Builder<'a, F, A>);
+pub struct SolverBuilder<'a, R: Problem, A>(Builder<'a, R, A>);
 
-impl<'a, F: Problem, A> SolverBuilder<'a, F, A> {
+impl<'a, R: Problem, A> SolverBuilder<'a, R, A> {
     /// Sets the initial point from which the iterative process starts.
-    pub fn with_initial(self, x0: Vec<F::Field>) -> Self {
+    pub fn with_initial(self, x0: Vec<R::Field>) -> Self {
         Self(self.0.with_initial(x0))
     }
 
@@ -218,24 +220,29 @@ impl<'a, F: Problem, A> SolverBuilder<'a, F, A> {
     /// This builder method accepts a closure that takes the reference to the
     /// problem and its domain. For many algorithms in gomez, you can simply
     /// pass the `new` constructor directly (e.g., `TrustRegion::new`).
-    pub fn with_algo<S2, FA>(self, factory: FA) -> SolverBuilder<'a, F, S2>
+    pub fn with_algo<S2, FA>(self, factory: FA) -> SolverBuilder<'a, R, S2>
     where
-        FA: FnOnce(&F, &Domain<F::Field>) -> S2,
+        FA: FnOnce(&R, &Domain<R::Field>) -> S2,
     {
         SolverBuilder(self.0.with_algo(factory))
     }
 
     /// Builds the [`SolverDriver`].
-    pub fn build(self) -> SolverDriver<'a, F, A> {
-        let Builder { f, dom, algo, x0 } = self.0.build();
-        let fx = x0.clone_owned();
+    pub fn build(self) -> SolverDriver<'a, R, A> {
+        let Builder {
+            p: r,
+            dom,
+            algo,
+            x0,
+        } = self.0.build();
+        let rx = x0.clone_owned();
 
         SolverDriver {
-            f,
+            r,
             dom,
             algo,
             x: x0,
-            fx,
+            rx,
         }
     }
 }
@@ -245,57 +252,57 @@ impl<'a, F: Problem, A> SolverBuilder<'a, F, A> {
 /// For default settings, use [`SolverDriver::new`]. For more flexibility, use
 /// [`SolverDriver::builder`]. For the usage of the driver, see [module](self)
 /// documentation.
-pub struct SolverDriver<'a, F: Problem, A> {
-    f: &'a F,
-    dom: Domain<F::Field>,
+pub struct SolverDriver<'a, R: Problem, A> {
+    r: &'a R,
+    dom: Domain<R::Field>,
     algo: A,
-    x: OVector<F::Field, Dyn>,
-    fx: OVector<F::Field, Dyn>,
+    x: OVector<R::Field, Dyn>,
+    rx: OVector<R::Field, Dyn>,
 }
 
-impl<'a, F: Problem> SolverDriver<'a, F, TrustRegion<F>> {
+impl<'a, R: Problem> SolverDriver<'a, R, TrustRegion<R>> {
     /// Returns the builder for specifying additional settings.
-    pub fn builder(f: &'a F) -> SolverBuilder<'a, F, TrustRegion<F>> {
-        SolverBuilder(Builder::new(f))
+    pub fn builder(r: &'a R) -> SolverBuilder<'a, R, TrustRegion<R>> {
+        SolverBuilder(Builder::new(r))
     }
 
     /// Initializes the driver with the default settings.
-    pub fn new(f: &'a F) -> Self {
-        SolverDriver::builder(f).build()
+    pub fn new(r: &'a R) -> Self {
+        SolverDriver::builder(r).build()
     }
 }
 
-impl<'a, F: Problem, S> SolverDriver<'a, F, S> {
+impl<'a, R: Problem, S> SolverDriver<'a, R, S> {
     /// Returns reference to the current point.
-    pub fn x(&self) -> &[F::Field] {
+    pub fn x(&self) -> &[R::Field] {
         self.x.as_slice()
     }
 
     /// Returns reference to the current residuals.
-    pub fn fx(&self) -> &[F::Field] {
-        self.fx.as_slice()
+    pub fn rx(&self) -> &[R::Field] {
+        self.rx.as_slice()
     }
 
     /// Returns norm of the residuals.
-    pub fn norm(&self) -> F::Field {
-        self.fx.norm()
+    pub fn norm(&self) -> R::Field {
+        self.rx.norm()
     }
 }
 
-impl<'a, F: System, A: Solver<F>> SolverDriver<'a, F, A> {
-    /// Does one iteration of the process, returning the norm of the residuals
-    /// in case of no error.
+impl<'a, R: System, A: Solver<R>> SolverDriver<'a, R, A> {
+    /// Performs one iteration of the process, returning the current point and
+    /// norm of the residuals in case of no error.
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<(&[F::Field], F::Field), A::Error> {
+    pub fn next(&mut self) -> Result<(&[R::Field], R::Field), A::Error> {
         self.algo
-            .solve_next(self.f, &self.dom, &mut self.x, &mut self.fx)?;
-        Ok((self.x.as_slice(), self.fx.norm()))
+            .solve_next(self.r, &self.dom, &mut self.x, &mut self.rx)?;
+        Ok((self.x.as_slice(), self.rx.norm()))
     }
 
     /// Runs the iterative process until given stopping criterion is satisfied.
-    pub fn find<C>(&mut self, stop: C) -> Result<(&[F::Field], F::Field), A::Error>
+    pub fn find<C>(&mut self, stop: C) -> Result<(&[R::Field], R::Field), A::Error>
     where
-        C: Fn(SolverIterState<'_, F>) -> bool,
+        C: Fn(SolverIterState<'_, R>) -> bool,
     {
         let mut iter = 0;
 
@@ -304,7 +311,7 @@ impl<'a, F: System, A: Solver<F>> SolverDriver<'a, F, A> {
 
             let state = SolverIterState {
                 x: &self.x,
-                fx: &self.fx,
+                rx: &self.rx,
                 iter,
             };
 
@@ -316,33 +323,33 @@ impl<'a, F: System, A: Solver<F>> SolverDriver<'a, F, A> {
         }
     }
 
-    /// Returns the name of the used solver.
+    /// Returns the name of the solver.
     pub fn name(&self) -> &str {
         A::NAME
     }
 }
 
-/// State of the current iteration.
-pub struct SolverIterState<'a, F: Problem> {
-    x: &'a OVector<F::Field, Dyn>,
-    fx: &'a OVector<F::Field, Dyn>,
+/// State of the current iteration in the solving process.
+pub struct SolverIterState<'a, R: Problem> {
+    x: &'a OVector<R::Field, Dyn>,
+    rx: &'a OVector<R::Field, Dyn>,
     iter: usize,
 }
 
-impl<'a, F: Problem> SolverIterState<'a, F> {
+impl<'a, R: Problem> SolverIterState<'a, R> {
     /// Returns reference to the current point.
-    pub fn x(&self) -> &[F::Field] {
+    pub fn x(&self) -> &[R::Field] {
         self.x.as_slice()
     }
 
     /// Returns reference to the current residuals.
-    pub fn fx(&self) -> &[F::Field] {
-        self.fx.as_slice()
+    pub fn rx(&self) -> &[R::Field] {
+        self.rx.as_slice()
     }
 
-    /// Returns norm of the residuals.
-    pub fn norm(&self) -> F::Field {
-        self.fx.norm()
+    /// Returns norm of the current residuals.
+    pub fn norm(&self) -> R::Field {
+        self.rx.norm()
     }
 
     /// Returns the current iteration number.
@@ -374,7 +381,12 @@ impl<'a, F: Problem, A> OptimizerBuilder<'a, F, A> {
 
     /// Builds the [`OptimizerDriver`].
     pub fn build(self) -> OptimizerDriver<'a, F, A> {
-        let Builder { f, dom, algo, x0 } = self.0.build();
+        let Builder {
+            p: f,
+            dom,
+            algo,
+            x0,
+        } = self.0.build();
 
         OptimizerDriver {
             f,
@@ -386,7 +398,7 @@ impl<'a, F: Problem, A> OptimizerBuilder<'a, F, A> {
     }
 }
 
-/// The driver for the process of solving a system of equations.
+/// The driver for the process of optimizing a function.
 ///
 /// For default settings, use [`OptimizerDriver::new`]. For more flexibility,
 /// use [`OptimizerDriver::builder`]. For the usage of the driver, see
@@ -424,8 +436,8 @@ impl<'a, F: Problem, A> OptimizerDriver<'a, F, A> {
 }
 
 impl<'a, F: Function, A: Optimizer<F>> OptimizerDriver<'a, F, A> {
-    /// Does one iteration of the process, returning the function value in case
-    /// of no error.
+    /// Performs one iteration of the process, returning the current point and
+    /// function value in case of no error.
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<(&[F::Field], F::Field), A::Error> {
         self.algo
@@ -457,13 +469,13 @@ impl<'a, F: Function, A: Optimizer<F>> OptimizerDriver<'a, F, A> {
         }
     }
 
-    /// Returns the name of the used optimizer.
+    /// Returns the name of the optimizer.
     pub fn name(&self) -> &str {
         A::NAME
     }
 }
 
-/// State of the current iteration.
+/// State of the current iteration if the optimization process.
 pub struct OptimizerIterState<'a, F: Problem> {
     x: &'a OVector<F::Field, Dyn>,
     fx: F::Field,
@@ -508,8 +520,8 @@ mod tests {
 
     #[test]
     fn solver_basic_use_case() {
-        let f = Sphere::new(4);
-        let mut solver = SolverDriver::builder(&f)
+        let r = Sphere::new(4);
+        let mut solver = SolverDriver::builder(&r)
             // Zeros are the root for sphere, there would be no point is such
             // test.
             .with_initial(vec![10.0; 4])
@@ -525,8 +537,8 @@ mod tests {
 
     #[test]
     fn solver_custom() {
-        let f = Sphere::new(1);
-        let mut solver = SolverDriver::builder(&f)
+        let r = Sphere::new(1);
+        let mut solver = SolverDriver::builder(&r)
             .with_algo(Steffensen::new)
             // Zeros is the root for sphere, there would be no point is such
             // test.

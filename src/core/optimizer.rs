@@ -2,26 +2,23 @@ use nalgebra::{storage::StorageMut, Dyn, IsContiguous, Vector};
 
 use super::{domain::Domain, function::Function};
 
-/// Common interface for all optimizers.
+/// Interface of an optimizer.
 ///
-/// All optimizers implement a common interface defined by the [`Optimizer`]
-/// trait. The essential method is [`opt_next`](Optimizer::opt_next) which takes
-/// variables *x* and computes the next step. Thus it represents one iteration
-/// in the process. Repeated call to this method should move *x* towards the
-/// minimum in successful cases.
+/// An optimizer is an iterative algorithm which takes a point _x_ and computes
+/// the next step in the optimization process. Repeated calls to the next step
+/// should eventually converge into a minimum _x'_.
 ///
-/// If you implement an optimizer, please consider make it a contribution to
-/// this library.
+/// If you implement an optimizer, please reach out to discuss if we could
+/// include it in gomez.
 ///
 /// ## Implementing an optimizer
 ///
-/// Here is an implementation of a random optimizer (if such a thing can be
-/// called an optimizer) which randomly generates values in a hope that
-/// eventually goes to the minimum with enough luck.
+/// Here is an implementation of a random "optimizer" which randomly generates
+/// values in a hope that a minimum can be found with enough luck.
 ///
 /// ```rust
 /// use gomez::nalgebra as na;
-/// use gomez::*;
+/// use gomez::{Domain, Function, Optimizer, Sample};
 /// use na::{storage::StorageMut, Dyn, IsContiguous, Vector};
 /// use fastrand::Rng;
 ///
@@ -63,23 +60,18 @@ pub trait Optimizer<F: Function> {
     /// Name of the optimizer.
     const NAME: &'static str;
 
-    /// Error type of the iteration. Represents an invalid operation during
-    /// computing the next step.
+    /// Error while computing the next step.
     type Error;
 
     /// Computes the next step in the optimization process.
     ///
-    /// The value of `x` is the current values of variables. After the method
-    /// returns, `x` should hold the variable values of the performed step and
-    /// the return value *must* be the function value of that step as computed
-    /// by [`Function::apply`].
+    /// The value of `x` is the current point. After the method returns, `x`
+    /// should hold the variable values of the performed step and the return
+    /// value _must_ be the function value of that step as computed by
+    /// [`Function::apply`].
     ///
-    /// It is implementation error not to return function value corresponding to
-    /// the computed step.
-    ///
-    /// The implementations *can* assume that subsequent calls to `next` pass
-    /// the value of `x` as was outputted in the previous iteration by the same
-    /// method.
+    /// The implementations _can_ assume that subsequent calls to `opt_next`
+    /// pass the value of `x` as was returned in the previous iteration
     fn opt_next<Sx>(
         &mut self,
         f: &F,

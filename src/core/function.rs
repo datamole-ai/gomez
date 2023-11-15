@@ -2,37 +2,31 @@ use nalgebra::{storage::Storage, Dyn, IsContiguous, Vector};
 
 use super::{base::Problem, system::System};
 
-/// The trait for defining functions.
+/// Definition of a function.
 ///
 /// ## Defining a function
 ///
 /// A function is any type that implements [`Function`] and [`Problem`] traits.
-/// There is one required associated type (field) and one required method
-/// ([`apply`](Function::apply)).
 ///
 /// ```rust
 /// use gomez::nalgebra as na;
 /// use gomez::{Domain, Function, Problem};
 /// use na::{Dyn, IsContiguous};
 ///
-/// // A problem is represented by a type.
 /// struct Rosenbrock {
 ///     a: f64,
 ///     b: f64,
 /// }
 ///
 /// impl Problem for Rosenbrock {
-///     // The numeric type. Usually f64 or f32.
 ///     type Field = f64;
 ///
-///     // The domain of the problem (could be bound-constrained).
 ///     fn domain(&self) -> Domain<Self::Field> {
 ///         Domain::unconstrained(2)
 ///     }
 /// }
 ///
 /// impl Function for Rosenbrock {
-///     // Apply trial values of variables to the function.
 ///     fn apply<Sx>(&self, x: &na::Vector<Self::Field, Dyn, Sx>) -> Self::Field
 ///     where
 ///         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
@@ -43,7 +37,7 @@ use super::{base::Problem, system::System};
 /// }
 /// ```
 pub trait Function: Problem {
-    /// Calculate the function value given values of the variables.
+    /// Calculates the function value in given point.
     fn apply<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
     where
         Sx: Storage<Self::Field, Dyn> + IsContiguous;

@@ -2,9 +2,9 @@
 //!
 //! [Nelder-Mead](https://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method)
 //! simplex-reflection method is a popular derivative-free optimization
-//! algorithm. It keeps a [simplex](https://en.wikipedia.org/wiki/Simplex) of *n
-//! + 1* points and the simplex is reflected, expanded or contracted based on
-//! squared norm of residuals comparison.
+//! algorithm. It keeps a [simplex](https://en.wikipedia.org/wiki/Simplex) of
+//! _n + 1_ points and the simplex is reflected, expanded or contracted based on
+//! the function values comparison.
 //!
 //! # References
 //!
@@ -53,23 +53,23 @@ pub enum CoefficientsFamily {
 /// Options for [`NelderMead`] solver.
 #[derive(Debug, Clone, CopyGetters, Setters)]
 #[getset(get_copy = "pub", set = "pub")]
-pub struct NelderMeadOptions<F: Problem> {
+pub struct NelderMeadOptions<P: Problem> {
     /// Family for coefficients adaptation or fixed coefficients. Default:
     /// balanced (see [`CoefficientsFamily`]).
     family: CoefficientsFamily,
     /// Coefficient for reflection operation. Default: `-1`.
-    reflection_coeff: F::Field,
+    reflection_coeff: P::Field,
     /// Coefficient for expansion operation. Default: `-2`.
-    expansion_coeff: F::Field,
+    expansion_coeff: P::Field,
     /// Coefficient for outer contraction operation. Default: `-0.5`.
-    outer_contraction_coeff: F::Field,
+    outer_contraction_coeff: P::Field,
     /// Coefficient for inner contraction operation. Default: `0.5`.
-    inner_contraction_coeff: F::Field,
+    inner_contraction_coeff: P::Field,
     /// Coefficient for shrinking operation. Default: `0.5`.
-    shrink_coeff: F::Field,
+    shrink_coeff: P::Field,
 }
 
-impl<F: Problem> Default for NelderMeadOptions<F> {
+impl<P: Problem> Default for NelderMeadOptions<P> {
     fn default() -> Self {
         Self {
             family: CoefficientsFamily::Standard,
@@ -82,8 +82,8 @@ impl<F: Problem> Default for NelderMeadOptions<F> {
     }
 }
 
-impl<F: Problem> NelderMeadOptions<F> {
-    fn overwrite_coeffs(&mut self, dom: &Domain<F::Field>) {
+impl<P: Problem> NelderMeadOptions<P> {
+    fn overwrite_coeffs(&mut self, dom: &Domain<P::Field>) {
         let Self {
             family,
             reflection_coeff,
@@ -102,14 +102,14 @@ impl<F: Problem> NelderMeadOptions<F> {
                 *shrink_coeff = convert(0.5);
             }
             CoefficientsFamily::Balanced => {
-                let n: F::Field = convert(dom.dim() as f64);
-                let n_inv = F::Field::one() / n;
+                let n: P::Field = convert(dom.dim() as f64);
+                let n_inv = P::Field::one() / n;
 
                 *reflection_coeff = convert(-1.0);
                 *expansion_coeff = -(n_inv * convert(2.0) + convert(1.0));
-                *outer_contraction_coeff = -(F::Field::one() - n_inv);
+                *outer_contraction_coeff = -(P::Field::one() - n_inv);
                 *inner_contraction_coeff = -*outer_contraction_coeff;
-                *shrink_coeff = F::Field::one() - n_inv;
+                *shrink_coeff = P::Field::one() - n_inv;
             }
             CoefficientsFamily::GoldenSection => {
                 let alpha = 1.0 / (0.5 * (5f64.sqrt() + 1.0));
@@ -126,27 +126,29 @@ impl<F: Problem> NelderMeadOptions<F> {
     }
 }
 
-/// Nelder-Mead solver. See [module](self) documentation for more details.
-pub struct NelderMead<F: Problem> {
-    options: NelderMeadOptions<F>,
-    scale: OVector<F::Field, Dyn>,
-    centroid: OVector<F::Field, Dyn>,
-    reflection: OVector<F::Field, Dyn>,
-    expansion: OVector<F::Field, Dyn>,
-    contraction: OVector<F::Field, Dyn>,
-    simplex: Vec<OVector<F::Field, Dyn>>,
-    errors: Vec<F::Field>,
+/// Nelder-Mead solver.
+///
+/// See [module](self) documentation for more details.
+pub struct NelderMead<P: Problem> {
+    options: NelderMeadOptions<P>,
+    scale: OVector<P::Field, Dyn>,
+    centroid: OVector<P::Field, Dyn>,
+    reflection: OVector<P::Field, Dyn>,
+    expansion: OVector<P::Field, Dyn>,
+    contraction: OVector<P::Field, Dyn>,
+    simplex: Vec<OVector<P::Field, Dyn>>,
+    errors: Vec<P::Field>,
     sort_perm: Vec<usize>,
 }
 
-impl<F: Problem> NelderMead<F> {
+impl<P: Problem> NelderMead<P> {
     /// Initializes Nelder-Mead solver with default options.
-    pub fn new(f: &F, dom: &Domain<F::Field>) -> Self {
-        Self::with_options(f, dom, NelderMeadOptions::default())
+    pub fn new(p: &P, dom: &Domain<P::Field>) -> Self {
+        Self::with_options(p, dom, NelderMeadOptions::default())
     }
 
     /// Initializes Nelder-Mead solver with given options.
-    pub fn with_options(_: &F, dom: &Domain<F::Field>, mut options: NelderMeadOptions<F>) -> Self {
+    pub fn with_options(_: &P, dom: &Domain<P::Field>, mut options: NelderMeadOptions<P>) -> Self {
         let dim = Dyn(dom.dim());
 
         options.overwrite_coeffs(dom);
@@ -261,8 +263,6 @@ impl<F: Function> NelderMead<F> {
             }
 
             sort_perm.extend(0..=n);
-            // Stable sort is important for sort_perm[0] being consistent with
-            // fx_best.
             sort_perm.sort_by(|a, b| {
                 errors[*a]
                     .partial_cmp(&errors[*b])
@@ -402,8 +402,7 @@ impl<F: Function> NelderMead<F> {
             }
         };
 
-        // Establish the ordering of simplex points. Stable sort is important
-        // for sort_perm[0] being consistent with fx_best.
+        // Establish the ordering of simplex points.
         sort_perm.sort_by(|a, b| {
             errors[*a]
                 .partial_cmp(&errors[*b])
@@ -411,7 +410,7 @@ impl<F: Function> NelderMead<F> {
         });
 
         debug!(
-            "performed {}{},\t|| fx || = {} - {}",
+            "performed {}{},\tfx = {} - {}",
             transformation.as_str(),
             if not_feasible { " with projection" } else { "" },
             errors[sort_perm[0]],
@@ -420,7 +419,6 @@ impl<F: Function> NelderMead<F> {
 
         // Return the best simplex point.
         x.copy_from(&simplex[sort_perm[0]]);
-        // fx corresponding to x is stored in `self.fx_best`.
 
         if transformation == Transformation::Shrinkage
             || transformation == Transformation::InnerContraction
@@ -467,24 +465,24 @@ impl<F: Function> Optimizer<F> for NelderMead<F> {
     }
 }
 
-impl<F: System + Function> Solver<F> for NelderMead<F> {
+impl<R: System> Solver<R> for NelderMead<R> {
     const NAME: &'static str = "Nelder-Mead";
 
     type Error = NelderMeadError;
 
-    fn solve_next<Sx, Sfx>(
+    fn solve_next<Sx, Srx>(
         &mut self,
-        f: &F,
-        dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dyn, Sx>,
-        fx: &mut Vector<F::Field, Dyn, Sfx>,
+        r: &R,
+        dom: &Domain<R::Field>,
+        x: &mut Vector<R::Field, Dyn, Sx>,
+        rx: &mut Vector<R::Field, Dyn, Srx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<F::Field, Dyn>,
+        Sx: StorageMut<R::Field, Dyn> + IsContiguous,
+        Srx: StorageMut<R::Field, Dyn>,
     {
-        self.next_inner(f, dom, x)?;
-        f.eval(x, fx);
+        self.next_inner(r, dom, x)?;
+        r.eval(x, rx);
         Ok(())
     }
 }

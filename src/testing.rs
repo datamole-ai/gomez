@@ -1,4 +1,4 @@
-//! Testing systems and utilities useful for benchmarking, debugging and smoke
+//! Testing problems and utilities useful for benchmarking, debugging and smoke
 //! testing.
 //!
 //! [`ExtendedRosenbrock`] and [`Sphere`] are recommended for first tests.
@@ -31,8 +31,8 @@ use thiserror::Error;
 
 use crate::core::{Domain, Function, Optimizer, Problem, Solver, System};
 
-/// Extension of the [`System`] trait that provides additional information that
-/// is useful for testing solvers.
+/// Extension of the [`Problem`] trait that provides additional information that
+/// is useful for testing algorithms.
 pub trait TestProblem: Problem {
     /// Standard initial values for the problem. Using the same initial values is
     /// essential for fair comparison of methods.
@@ -45,22 +45,24 @@ pub trait TestSystem: System + TestProblem
 where
     Self::Field: approx::RelativeEq,
 {
-    /// A set of roots (if known and finite). This is mostly just for
-    /// information, for example to know how close a solver got even if it
-    /// failed. For testing if a given point is root, [`TestSystem::is_root`]
-    /// should be used.
+    /// A set of roots (if known and finite).
+    ///
+    /// This is mostly just for information, for example to know how close a
+    /// solver got even if it failed. For testing if a given point is a
+    /// solution, [`TestSystem::is_root`] should be used.
     fn roots(&self) -> Vec<OVector<Self::Field, Dyn>> {
         Vec::new()
     }
 
-    /// Test if given point is a root of the system, given the tolerance `eps`.
+    /// Tests if given point is a solution of the system, given the tolerance
+    /// `eps`.
     fn is_root<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>, eps: Self::Field) -> bool
     where
         Sx: Storage<Self::Field, Dyn> + IsContiguous,
     {
-        let mut fx = x.clone_owned();
-        self.eval(x, &mut fx);
-        fx.norm() <= eps
+        let mut rx = x.clone_owned();
+        self.eval(x, &mut rx);
+        rx.norm() <= eps
     }
 }
 
@@ -70,15 +72,17 @@ pub trait TestFunction: Function + TestProblem
 where
     Self::Field: approx::RelativeEq,
 {
-    /// A set of global optima (if known and finite). This is mostly just for
-    /// information, for example to know how close an optimizer got even if it
-    /// failed. For testing if a given point is global optimum, [`TestFunction::is_optimum`]
-    /// should be used.
+    /// A set of global optima (if known and finite).
+    ///
+    /// This is mostly just for information, for example to know how close an
+    /// optimizer got even if it failed. For testing if a given point is a global
+    /// optimum, [`TestFunction::is_optimum`] should be used.
     fn optima(&self) -> Vec<OVector<Self::Field, Dyn>> {
         Vec::new()
     }
 
-    /// Test if given point is a root of the system, given the tolerance `eps`.
+    /// Test if given point is a global optimum of the system, given the
+    /// tolerance `eps`.
     fn is_optimum<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>, eps: Self::Field) -> bool
     where
         Sx: Storage<Self::Field, Dyn> + IsContiguous;
@@ -135,10 +139,10 @@ impl ExtendedRosenbrock {
             let x1 = x[i1] * alpha;
             let x2 = x[i2] / alpha;
 
-            let fx1 = 10.0 * (x2 - x1 * x1);
-            let fx2 = 1.0 - x1;
+            let rx1 = 10.0 * (x2 - x1 * x1);
+            let rx2 = 1.0 - x1;
 
-            [fx1, fx2].into_iter()
+            [rx1, rx2].into_iter()
         })
     }
 }
@@ -166,15 +170,15 @@ impl Problem for ExtendedRosenbrock {
 }
 
 impl System for ExtendedRosenbrock {
-    fn eval<Sx, Sfx>(
+    fn eval<Sx, Srx>(
         &self,
         x: &Vector<Self::Field, Dyn, Sx>,
-        fx: &mut Vector<Self::Field, Dyn, Sfx>,
+        rx: &mut Vector<Self::Field, Dyn, Srx>,
     ) where
         Sx: Storage<Self::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<Self::Field, Dyn>,
+        Srx: StorageMut<Self::Field, Dyn>,
     {
-        eval(self.residuals(x), fx)
+        eval(self.residuals(x), rx)
     }
 
     fn norm<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
@@ -251,12 +255,12 @@ impl ExtendedPowell {
             let i3 = 4 * i + 2;
             let i4 = 4 * i + 3;
 
-            let fx1 = x[i1] + 10.0 * x[i2];
-            let fx2 = 5f64.sqrt() * (x[i3] - x[i4]);
-            let fx3 = (x[i2] - 2.0 * x[i3]).powi(2);
-            let fx4 = 10f64.sqrt() * (x[i1] - x[i4]).powi(2);
+            let rx1 = x[i1] + 10.0 * x[i2];
+            let rx2 = 5f64.sqrt() * (x[i3] - x[i4]);
+            let rx3 = (x[i2] - 2.0 * x[i3]).powi(2);
+            let rx4 = 10f64.sqrt() * (x[i1] - x[i4]).powi(2);
 
-            [fx1, fx2, fx3, fx4].into_iter()
+            [rx1, rx2, rx3, rx4].into_iter()
         })
     }
 }
@@ -276,15 +280,15 @@ impl Problem for ExtendedPowell {
 }
 
 impl System for ExtendedPowell {
-    fn eval<Sx, Sfx>(
+    fn eval<Sx, Srx>(
         &self,
         x: &Vector<Self::Field, Dyn, Sx>,
-        fx: &mut Vector<Self::Field, Dyn, Sfx>,
+        rx: &mut Vector<Self::Field, Dyn, Srx>,
     ) where
         Sx: Storage<Self::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<Self::Field, Dyn>,
+        Srx: StorageMut<Self::Field, Dyn>,
     {
-        eval(self.residuals(x), fx)
+        eval(self.residuals(x), rx)
     }
 
     fn norm<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
@@ -363,15 +367,15 @@ impl Problem for BullardBiegler {
 }
 
 impl System for BullardBiegler {
-    fn eval<Sx, Sfx>(
+    fn eval<Sx, Srx>(
         &self,
         x: &Vector<Self::Field, Dyn, Sx>,
-        fx: &mut Vector<Self::Field, Dyn, Sfx>,
+        rx: &mut Vector<Self::Field, Dyn, Srx>,
     ) where
         Sx: Storage<Self::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<Self::Field, Dyn>,
+        Srx: StorageMut<Self::Field, Dyn>,
     {
-        eval(self.residuals(x), fx)
+        eval(self.residuals(x), rx)
     }
 
     fn norm<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
@@ -442,15 +446,15 @@ impl Problem for Sphere {
 }
 
 impl System for Sphere {
-    fn eval<Sx, Sfx>(
+    fn eval<Sx, Srx>(
         &self,
         x: &Vector<Self::Field, Dyn, Sx>,
-        fx: &mut Vector<Self::Field, Dyn, Sfx>,
+        rx: &mut Vector<Self::Field, Dyn, Srx>,
     ) where
         Sx: Storage<Self::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<Self::Field, Dyn>,
+        Srx: StorageMut<Self::Field, Dyn>,
     {
-        eval(self.residuals(x), fx)
+        eval(self.residuals(x), rx)
     }
 
     fn norm<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
@@ -520,14 +524,14 @@ impl Brown {
         let n = self.n as f64;
         let x_sum = x.sum();
 
-        let fx0 = x.iter().product::<f64>() - 1.0;
-        let fxs = x
+        let r0x = x.iter().product::<f64>() - 1.0;
+        let rix = x
             .iter()
             .skip(1)
             .copied()
             .map(move |xi| xi + x_sum - n + 1.0);
 
-        std::iter::once(fx0).chain(fxs)
+        std::iter::once(r0x).chain(rix)
     }
 }
 
@@ -546,15 +550,15 @@ impl Problem for Brown {
 }
 
 impl System for Brown {
-    fn eval<Sx, Sfx>(
+    fn eval<Sx, Srx>(
         &self,
         x: &Vector<Self::Field, Dyn, Sx>,
-        fx: &mut Vector<Self::Field, Dyn, Sfx>,
+        rx: &mut Vector<Self::Field, Dyn, Srx>,
     ) where
         Sx: Storage<Self::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<Self::Field, Dyn>,
+        Srx: StorageMut<Self::Field, Dyn>,
     {
-        eval(self.residuals(x), fx)
+        eval(self.residuals(x), rx)
     }
 
     fn norm<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
@@ -624,15 +628,15 @@ impl Problem for Exponential {
 }
 
 impl System for Exponential {
-    fn eval<Sx, Sfx>(
+    fn eval<Sx, Srx>(
         &self,
         x: &Vector<Self::Field, Dyn, Sx>,
-        fx: &mut Vector<Self::Field, Dyn, Sfx>,
+        rx: &mut Vector<Self::Field, Dyn, Srx>,
     ) where
         Sx: Storage<Self::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<Self::Field, Dyn>,
+        Srx: StorageMut<Self::Field, Dyn>,
     {
-        eval(self.residuals(x), fx)
+        eval(self.residuals(x), rx)
     }
 
     fn norm<Sx>(&self, x: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
@@ -652,7 +656,7 @@ impl TestProblem for Exponential {
 
 impl TestSystem for Exponential {}
 
-/// This system is true for any assignment of x.
+/// Any value of _x_ is a solution.
 #[derive(Debug, Clone, Copy)]
 pub struct InfiniteSolutions {
     n: usize,
@@ -681,15 +685,15 @@ impl Problem for InfiniteSolutions {
 }
 
 impl System for InfiniteSolutions {
-    fn eval<Sx, Sfx>(
+    fn eval<Sx, Srx>(
         &self,
         _x: &Vector<Self::Field, Dyn, Sx>,
-        fx: &mut Vector<Self::Field, Dyn, Sfx>,
+        rx: &mut Vector<Self::Field, Dyn, Srx>,
     ) where
         Sx: Storage<Self::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<Self::Field, Dyn>,
+        Srx: StorageMut<Self::Field, Dyn>,
     {
-        fx.fill(0.0);
+        rx.fill(0.0);
     }
 
     fn norm<Sx>(&self, _: &Vector<Self::Field, Dyn, Sx>) -> Self::Field
@@ -709,37 +713,37 @@ impl TestProblem for InfiniteSolutions {
 
 impl TestSystem for InfiniteSolutions {}
 
-/// Solving or optimization error of the testing solver/optimizer driver (see
-/// [`solve`] and [`optimize`]).
+/// Optimization or solving error of the testing optimizer/solver driver (see
+/// [`optimize`] and [`solve`]).
 #[derive(Debug, Error)]
 pub enum TestingError<E: StdError + 'static> {
-    /// Error of the solver used.
+    /// Error of the algorithm used.
     #[error("{0}")]
     Inner(#[from] E),
-    /// Solver did not terminate.
-    #[error("solver did not terminate")]
+    /// Algorithm did not terminate.
+    #[error("algorithm did not terminate")]
     Termination,
 }
 
 /// A simple solver driver that can be used in tests.
-pub fn solve<F: TestSystem, S: Solver<F>>(
-    f: &F,
-    dom: &Domain<F::Field>,
-    mut solver: S,
-    mut x: OVector<F::Field, Dyn>,
+pub fn solve<R: TestSystem, A: Solver<R>>(
+    r: &R,
+    dom: &Domain<R::Field>,
+    mut solver: A,
+    mut x: OVector<R::Field, Dyn>,
     max_iters: usize,
-    tolerance: F::Field,
-) -> Result<OVector<F::Field, Dyn>, TestingError<S::Error>>
+    tolerance: R::Field,
+) -> Result<OVector<R::Field, Dyn>, TestingError<A::Error>>
 where
-    S::Error: StdError,
+    A::Error: StdError,
 {
-    let mut fx = x.clone_owned();
+    let mut rx = x.clone_owned();
     let mut iter = 0;
 
     loop {
-        solver.solve_next(f, dom, &mut x, &mut fx)?;
+        solver.solve_next(r, dom, &mut x, &mut rx)?;
 
-        if fx.norm() <= tolerance {
+        if rx.norm() <= tolerance {
             return Ok(x);
         }
 
@@ -751,7 +755,7 @@ where
     }
 }
 
-/// A simple solver driver that can be used in tests.
+/// A simple optimization driver that can be used in tests.
 pub fn optimize<F: Function, O: Optimizer<F>>(
     f: &F,
     dom: &Domain<F::Field>,
@@ -782,37 +786,40 @@ where
     }
 }
 
-/// Iterate the solver and inspect it in each iteration. This is useful for
-/// testing evolutionary/nature-inspired algorithms.
-pub fn iter<F: TestSystem, S: Solver<F>, G>(
-    f: &F,
-    dom: &Domain<F::Field>,
-    mut solver: S,
-    mut x: OVector<F::Field, Dyn>,
+/// Iterates the solver and inspects it in each iteration.
+///
+/// This is useful for testing evolutionary/nature-inspired algorithms.
+pub fn iter<R: TestSystem, A: Solver<R>, G>(
+    r: &R,
+    dom: &Domain<R::Field>,
+    mut solver: A,
+    mut x: OVector<R::Field, Dyn>,
     iters: usize,
     mut inspect: G,
-) -> Result<(), S::Error>
+) -> Result<(), A::Error>
 where
-    S::Error: StdError,
-    G: FnMut(&S, &OVector<F::Field, Dyn>, F::Field, usize),
+    A::Error: StdError,
+    G: FnMut(&A, &OVector<R::Field, Dyn>, R::Field, usize),
 {
-    let mut fx = x.clone_owned();
+    let mut rx = x.clone_owned();
 
     for iter in 0..iters {
-        solver.solve_next(f, dom, &mut x, &mut fx)?;
-        inspect(&solver, &x, fx.norm(), iter);
+        solver.solve_next(r, dom, &mut x, &mut rx)?;
+        inspect(&solver, &x, rx.norm(), iter);
     }
 
     Ok(())
 }
 
-fn eval<Sfx>(residuals: impl Iterator<Item = f64>, fx: &mut Vector<f64, Dyn, Sfx>)
+fn eval<Srx>(residuals: impl Iterator<Item = f64>, rx: &mut Vector<f64, Dyn, Srx>)
 where
-    Sfx: StorageMut<f64, Dyn>,
+    Srx: StorageMut<f64, Dyn>,
 {
-    fx.iter_mut().zip(residuals).for_each(|(fxi, v)| *fxi = v);
+    rx.iter_mut()
+        .zip(residuals)
+        .for_each(|(rix, res)| *rix = res);
 }
 
 fn norm(residuals: impl Iterator<Item = f64>) -> f64 {
-    residuals.map(|v| v.powi(2)).sum::<f64>().sqrt()
+    residuals.map(|res| res.powi(2)).sum::<f64>().sqrt()
 }
