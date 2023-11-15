@@ -2,147 +2,209 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
-//! # Gomez
+//! _gomez_ is a framework and implementation for **mathematical optimization**
+//! and solving **non-linear systems of equations**.
 //!
-//! A pure Rust framework and implementation of (derivative-free) methods for
-//! solving nonlinear (bound-constrained) systems of equations.
+//! The library is written completely in Rust. Its focus is on being useful for
+//! **practical problems** and having API that is simple for easy cases as well
+//! as flexible for complicated ones. The name stands for ***g***lobal
+//! ***o***ptimization & ***n***on-linear ***e***quations ***s***olving, with a
+//! few typos.
 //!
-//! This library provides a variety of solvers of nonlinear equation systems
-//! with *n* equations and *n* unknowns written entirely in Rust. Bound
-//! constraints for variables are supported first-class, which is useful for
-//! engineering applications. All solvers implement the same interface which is
-//! designed to give full control over the process and allows to combine
-//! different components to achieve the desired solution. The implemented
-//! methods are historically-proven numerical methods or global optimization
-//! algorithms.
+//! ## Practical problems
 //!
-//! The convergence of the numerical methods is tested on several problems and
-//! the implementation is benchmarked against with
-//! [GSL](https://www.gnu.org/software/gsl/doc/html/multiroots.html) library.
+//! The main goal is to be useful for practical problems. This is manifested by
+//! the following features:
+//!
+//! * _Derivative-free_. No algorithm requires an analytical derivative
+//!   (gradient, Hessian, Jacobian). Methods that use derivatives approximate it
+//!   using finite difference method<sup>1</sup>.
+//! * _Constraints_ support. It is possible to specify the problem domain with
+//!   constraints<sup>2</sup>, which is necessary for many engineering
+//!   applications.
+//! * Non-naive implementations. The code is not a direct translation of a
+//!   textbook pseudocode. It's written with performance in mind and applies
+//!   important techniques from numerical mathematics. It also tries to handle
+//!   situations that hurt the methods but occur in practice.
+//!
+//! <sup>1</sup> There is a plan to provide ways to override this approximation
+//! with a real derivative.
+//!
+//! <sup>2</sup> Currently, only unconstrained and box-bounded domains are
+//! supported.
 //!
 //! ## Algorithms
 //!
-//! * [Trust region](algo::trust_region) -- Recommended method to be used as a
-//!   default and it will just work in most of the cases.
-//! * [LIPO](algo::lipo) -- A global optimization algorithm useful for initial
-//!   guesses search in combination with a numerical solver.
-//! * [Steffensen](algo::steffensen) -- Fast and lightweight method for
-//!   one-dimensional systems.
-//! * [Nelder-Mead](algo::nelder_mead) -- Not generally recommended, but may be
-//!   useful for low-dimensionality problems with ill-defined Jacobian matrix.
+//! * [Trust region](algo::trust_region) – Recommended method to be used as a
+//!   default and it will just work in most cases.
+//! * [LIPO](algo::lipo) – Global optimization algorithm useful for searching
+//!   good initial guesses in combination with a numerical algorithm.
+//! * [Steffensen](algo::steffensen) – Fast and lightweight method for solving
+//!   one-dimensional systems of equations.
+//! * [Nelder-Mead](algo::nelder_mead) – Direct search optimization method that
+//!   does not use any derivatives.
 //!
-//! ## Problem
+//! This list will be extended in the future. But at the same time, having as
+//! many algorithms as possible is _not_ the goal. Instead, the focus is on
+//! providing quality implementations of battle-tested methods.
 //!
-//! The problem of solving systems of nonlinear equations (multidimensional root
-//! finding) is about finding values of *n* variables given *n* equations that
-//! have to be satisfied. In our case, we consider a general algebraic form of
-//! the equations (compare with specialized solvers for [systems of linear
-//! equations](https://en.wikipedia.org/wiki/System_of_linear_equations)).
+//! ## Mathematical optimization
 //!
-//! Mathematically, the problem is formulated as
+//! Given a function _f: D → R_ from some domain _D_ (in _R<sup>n</sup>_) to the
+//! real numbers and an initial point _x<sub>0</sub>_, the goal is to find a
+//! point _x'_ such that _f(x')_ is a minimum. Note that gomez does not
+//! guarantee that the minimum is global, although the focus is on global
+//! optimization techniques.
 //!
-//! ```text
-//! F(x) = 0,
-//!
-//! where F(x) = { f1(x), ..., fn(x) }
-//! and x = { x1, ..., xn }
-//! ```
-//!
-//! Moreover, it is possible to add bound constraints to the variables. That is:
-//!
-//! ```text
-//! Li <= xi <= Ui for some bounds [L, U] for every i
-//! ```
-//!
-//! The bounds can be negative/positive infinity, effectively making the
-//! variable unconstrained.
-//!
-//! More sophisticated constraints (such as (in)equalities consisting of
-//! multiple variables) are currently out of the scope of this library. If you
-//! are in need of those, feel free to contribute with the API design
-//! incorporating them and the implementation of appropriate solvers.
-//!
-//! When it comes to code, the problem is any type that implements the
-//! [`System`] and [`Problem`] traits.
+//! ### Example
 //!
 //! ```rust
-//! // Gomez is based on `nalgebra` crate.
 //! use gomez::nalgebra as na;
-//! use gomez::{Domain, Problem, System};
+//! use gomez::{Domain, Function, OptimizerDriver, Problem};
 //! use na::{Dyn, IsContiguous};
 //!
-//! // A problem is represented by a type.
+//! // Objective function is represented by a struct.
 //! struct Rosenbrock {
 //!     a: f64,
 //!     b: f64,
 //! }
 //!
 //! impl Problem for Rosenbrock {
-//!     // The numeric type. Usually f64 or f32.
+//!     // Field type, f32 or f64.
 //!     type Field = f64;
 //!
-//!     // Specification for the domain. At the very least, the dimension
-//!     // must be known.
+//!     // Domain of the function.
+//!     fn domain(&self) -> Domain<Self::Field> {
+//!         Domain::unconstrained(2)
+//!     }
+//! }
+//!
+//! impl Function for Rosenbrock {
+//!     // Body of the function, taking x and returning f(x).
+//!     fn apply<Sx>(&self, x: &na::Vector<Self::Field, Dyn, Sx>) -> Self::Field
+//!     where
+//!         Sx: na::Storage<Self::Field, Dyn> + IsContiguous,
+//!     {
+//!         (self.a - x[0]).powi(2) + self.b * (x[1] - x[0].powi(2)).powi(2)
+//!     }
+//! }
+//!
+//! let f = Rosenbrock { a: 1.0, b: 1.0 };
+//! let mut optimizer = OptimizerDriver::builder(&f)
+//!     .with_initial(vec![-10.0, -5.0])
+//!     .build();
+//!
+//! let (x, fx) = optimizer
+//!     .find(|state| state.fx() <= 1e-6 || state.iter() >= 100)
+//!     .expect("optimizer error");
+//!
+//! println!("f(x) = {fx}\tx = {x:?}");
+//! # assert!(fx <= 1e-6);
+//! ```
+//!
+//! See [`OptimizerDriver`] and [`OptimizerBuilder`](driver::OptimizerBuilder)
+//! for additional options.
+//!
+//! ## Systems of equations
+//!
+//! Given a vector function _r: D → R<sup>n</sup>_, with _r<sub>i</sub>: D → R_
+//! from some domain _D_ (in _R<sup>n</sup>_) to the real numbers for _i = 1, 2,
+//! ..., n_, and an initial point _x<sub>0</sub>_, the goal is to find a point
+//! _x'_ such that _r(x) = 0_. Note that there is no constraint on the form of
+//! the equations _r<sub>i</sub>_ (compare with specialized solvers for [systems
+//! of linear
+//! equations](https://en.wikipedia.org/wiki/System_of_linear_equations)).
+//!
+//! ### Example
+//!
+//! ```rust
+//! use gomez::nalgebra as na;
+//! use gomez::{Domain, Problem, SolverDriver, System};
+//! use na::{Dyn, IsContiguous};
+//!
+//! // System of equations is represented by a struct.
+//! struct Rosenbrock {
+//!     a: f64,
+//!     b: f64,
+//! }
+//!
+//! impl Problem for Rosenbrock {
+//!     // Field type, f32 or f64.
+//!     type Field = f64;
+//!
+//!     // Domain of the system.
 //!     fn domain(&self) -> Domain<Self::Field> {
 //!         Domain::unconstrained(2)
 //!     }
 //! }
 //!
 //! impl System for Rosenbrock {
-//!     // Evaluate trial values of variables to the system.
-//!     fn eval<Sx, Sfx>(
+//!     // Evaluation of the system (computing the residuals).
+//!     fn eval<Sx, Srx>(
 //!         &self,
 //!         x: &na::Vector<Self::Field, Dyn, Sx>,
-//!         fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
+//!         rx: &mut na::Vector<Self::Field, Dyn, Srx>,
 //!     ) where
 //!         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
-//!         Sfx: na::storage::StorageMut<Self::Field, Dyn>,
+//!         Srx: na::storage::StorageMut<Self::Field, Dyn>,
 //!     {
-//!         // Compute the residuals of all equations.
-//!         fx[0] = (self.a - x[0]).powi(2);
-//!         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
+//!         rx[0] = (self.a - x[0]).powi(2);
+//!         rx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
 //!     }
 //! }
+//!
+//! let r = Rosenbrock { a: 1.0, b: 1.0 };
+//! let mut solver = SolverDriver::builder(&r)
+//!     .with_initial(vec![-10.0, -5.0])
+//!     .build();
+//!
+//! let (x, norm) = solver
+//!     .find(|state| state.norm() <= 1e-6 || state.iter() >= 100)
+//!     .expect("solver error");
+//!
+//! println!("|| r(x) || = {norm}\tx = {x:?}");
+//! # assert!(norm <= 1e-6);
 //! ```
 //!
-//! And that's it. There is no need for defining gradient vector, Hessian or
-//! Jacobian matrices. The library uses [finite
-//! difference](https://en.wikipedia.org/wiki/Finite_difference_method)
-//! technique (usually sufficient in practice) or algorithms that are
-//! derivative-free by definition.
+//! See [`SolverDriver`] and [`SolverBuilder`](driver::SolverBuilder) for
+//! additional options.
 //!
-//! The previous example used unconstrained variable, but it is also possible to
-//! specify bounds.
+//! ## Custom algorithms
+//!
+//! It is possible to create a custom algorithm by implementing the
+//! [`Optimizer`] and/or [`Solver`] trait. Then it can be used by the driver as
+//! any other algorithm provided by gomez. Go see the documentation of the
+//! traits to get more details.
 //!
 //! ```rust
 //! # use gomez::nalgebra as na;
-//! # use gomez::*;
+//! # use gomez::{Domain, Function, Optimizer, OptimizerDriver, Problem};
+//! # use na::{storage::StorageMut, Dyn, IsContiguous, Vector};
 //! #
-//! # struct Rosenbrock {
-//! #     a: f64,
-//! #     b: f64,
+//! # struct MyAlgo;
+//! #
+//! # impl MyAlgo {
+//! #     fn new(_: &Rosenbrock, _: &Domain<f64>) -> Self {
+//! #         Self
+//! #     }
 //! # }
 //! #
-//! impl Problem for Rosenbrock {
-//! #     type Field = f64;
-//!     // ...
-//!
-//!     fn domain(&self) -> Domain<Self::Field> {
-//!         [(-10.0, 10.0), (-10.0, 10.0)].into_iter().collect()
-//!     }
-//! }
-//! ```
-//!
-//! ## Solving
-//!
-//! When you have your system available, you can use the [`SolverDriver`] to run
-//! the iteration process until a stopping criterion is reached.
-//!
-//! ```rust
-//! use gomez::SolverDriver;
-//! # use gomez::nalgebra as na;
-//! # use gomez::{Domain, Problem, System};
-//! # use na::{Dyn, IsContiguous};
+//! # impl Optimizer<Rosenbrock> for MyAlgo {
+//! #     const NAME: &'static str = "my algo";
+//! #     type Error = std::convert::Infallible;
+//! #
+//! #     fn opt_next<Sx>(
+//! #         &mut self,
+//! #         f: &Rosenbrock,
+//! #         dom: &Domain<f64>,
+//! #         x: &mut Vector<f64, Dyn, Sx>,
+//! #     ) -> Result<f64, Self::Error>
+//! #     where
+//! #         Sx: StorageMut<f64, Dyn> + IsContiguous,
+//! #     {
+//! #         Ok(0.0)
+//! #     }
+//! # }
 //! #
 //! # struct Rosenbrock {
 //! #     a: f64,
@@ -153,65 +215,41 @@
 //! #     type Field = f64;
 //! #
 //! #     fn domain(&self) -> Domain<Self::Field> {
-//! #         Domain::unconstrained(2)
+//! #         Domain::rect(vec![-10.0, -10.0], vec![10.0, 10.0])
 //! #     }
 //! # }
 //! #
-//! # impl System for Rosenbrock {
-//! #     fn eval<Sx, Sfx>(
-//! #         &self,
-//! #         x: &na::Vector<Self::Field, Dyn, Sx>,
-//! #         fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
-//! #     ) where
-//! #         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
-//! #         Sfx: na::storage::StorageMut<Self::Field, Dyn>,
+//! # impl Function for Rosenbrock {
+//! #     fn apply<Sx>(&self, x: &na::Vector<Self::Field, Dyn, Sx>) -> Self::Field
+//! #     where
+//! #         Sx: na::Storage<Self::Field, Dyn> + IsContiguous,
 //! #     {
-//! #         fx[0] = (self.a - x[0]).powi(2);
-//! #         fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
+//! #         (self.a - x[0]).powi(2) + self.b * (x[1] - x[0].powi(2)).powi(2)
 //! #     }
 //! # }
-//!
+//! #
 //! let f = Rosenbrock { a: 1.0, b: 1.0 };
-//! let mut solver = SolverDriver::builder(&f)
-//!     .with_initial(vec![-10.0, -5.0])
+//! let mut optimizer = OptimizerDriver::builder(&f)
+//!     .with_algo(|f, dom| MyAlgo::new(f, dom))
 //!     .build();
-//!
-//! let tolerance = 1e-6;
-//!
-//! let (x, fx) = solver
-//!     .find(|state| {
-//!         println!(
-//!             "iter = {}\t|| fx || = {}\tx = {:?}",
-//!             state.iter(),
-//!             state.norm(),
-//!             state.x()
-//!         );
-//!         state.norm() <= tolerance || state.iter() >= 100
-//!     })
-//!     .expect("solver encountered an error");
-//!
-//! if fx <= tolerance {
-//!     println!("solved: {x:?}");
-//! } else {
-//!     println!("maximum number of iteration exceeded");
-//! }
 //! ```
+//!
+//! If you implement an algorithm, please reach out to discuss if we could
+//! include it in gomez.
 //!
 //! ## Roadmap
 //!
-//! Listed *not* in order of priority.
+//! Listed *not* in priority order.
 //!
 //! * [Homotopy continuation
 //!   method](http://homepages.math.uic.edu/~jan/srvart/node4.html) to compare
-//!   the performance with Trust region method.
+//!   the performance with the trust region method
 //! * Conjugate gradient method
 //! * Experimentation with various global optimization techniques for initial
-//!   guesses search
+//!   guess search
 //!   * Evolutionary/nature-inspired algorithms
 //!   * Bayesian optimization
-//! * Focus on initial guesses search and tools in general
-//! * High-level drivers encapsulating the low-level API for users that do not
-//!   need the fine-grained control.
+//! * Focus on initial guesses search and tools for analysis in general
 //!
 //! ## License
 //!

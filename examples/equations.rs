@@ -17,31 +17,31 @@ impl Problem for Rosenbrock {
 }
 
 impl System for Rosenbrock {
-    fn eval<Sx, Sfx>(
+    fn eval<Sx, Srx>(
         &self,
         x: &na::Vector<Self::Field, Dyn, Sx>,
-        fx: &mut na::Vector<Self::Field, Dyn, Sfx>,
+        rx: &mut na::Vector<Self::Field, Dyn, Srx>,
     ) where
         Sx: na::storage::Storage<Self::Field, Dyn> + IsContiguous,
-        Sfx: na::storage::StorageMut<Self::Field, Dyn>,
+        Srx: na::storage::StorageMut<Self::Field, Dyn>,
     {
-        fx[0] = (self.a - x[0]).powi(2);
-        fx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
+        rx[0] = (self.a - x[0]).powi(2);
+        rx[1] = self.b * (x[1] - x[0].powi(2)).powi(2);
     }
 }
 
 fn main() -> Result<(), String> {
-    let f = Rosenbrock { a: 1.0, b: 1.0 };
-    let mut solver = SolverDriver::builder(&f)
-        .with_initial(vec![-10.0, -5.0])
+    let r = Rosenbrock { a: 1.0, b: 1.0 };
+    let mut solver = SolverDriver::builder(&r)
+        .with_initial(vec![10.0, -5.0])
         .build();
 
     let tolerance = 1e-6;
 
-    let (_, fx) = solver
+    let (_, norm) = solver
         .find(|state| {
             println!(
-                "iter = {}\t|| fx || = {}\tx = {:?}",
+                "iter = {}\t|| r(x) || = {}\tx = {:?}",
                 state.iter(),
                 state.norm(),
                 state.x()
@@ -50,7 +50,7 @@ fn main() -> Result<(), String> {
         })
         .map_err(|error| format!("{error}"))?;
 
-    if fx <= tolerance {
+    if norm <= tolerance {
         Ok(())
     } else {
         Err("did not converge".to_string())

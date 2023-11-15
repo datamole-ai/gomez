@@ -10,44 +10,44 @@ use num_traits::{One, Zero};
 
 use crate::core::{Function, Problem, RealField as _, System};
 
-/// Jacobian matrix of a system.
+/// Jacobian matrix of a system of equations.
 #[derive(Debug)]
-pub struct Jacobian<F: Problem> {
-    jac: OMatrix<F::Field, Dyn, Dyn>,
+pub struct Jacobian<R: Problem> {
+    jac: OMatrix<R::Field, Dyn, Dyn>,
 }
 
-impl<F: Problem> Jacobian<F> {
+impl<R: Problem> Jacobian<R> {
     /// Initializes the Jacobian matrix with zeros.
-    pub fn zeros(f: &F) -> Self {
-        let dim = Dyn(f.domain().dim());
+    pub fn zeros(r: &R) -> Self {
+        let dim = Dyn(r.domain().dim());
         Self {
             jac: OMatrix::zeros_generic(dim, dim),
         }
     }
 }
 
-impl<F: System> Jacobian<F> {
-    /// Compute Compute the Jacobian matrix of the system in given point with
-    /// given scale of variables. See [`compute`](Jacobian::compute) for more
-    /// details.
-    pub fn new<Sx, Sscale, Sfx>(
-        f: &F,
-        x: &mut Vector<F::Field, Dyn, Sx>,
-        scale: &Vector<F::Field, Dyn, Sscale>,
-        fx: &Vector<F::Field, Dyn, Sfx>,
+impl<R: System> Jacobian<R> {
+    /// Computes the Jacobian matrix of the system of equations in given point
+    /// with given scale of variables. See [`compute`](Jacobian::compute) for
+    /// more details.
+    pub fn new<Sx, Sscale, Srx>(
+        r: &R,
+        x: &mut Vector<R::Field, Dyn, Sx>,
+        scale: &Vector<R::Field, Dyn, Sscale>,
+        rx: &Vector<R::Field, Dyn, Srx>,
     ) -> Self
     where
-        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
-        Sscale: Storage<F::Field, Dyn>,
-        Sfx: Storage<F::Field, Dyn>,
+        Sx: StorageMut<R::Field, Dyn> + IsContiguous,
+        Sscale: Storage<R::Field, Dyn>,
+        Srx: Storage<R::Field, Dyn>,
     {
-        let mut jac = Self::zeros(f);
-        jac.compute(f, x, scale, fx);
+        let mut jac = Self::zeros(r);
+        jac.compute(r, x, scale, rx);
         jac
     }
 
-    /// Compute the Jacobian matrix of the system in given point with given
-    /// scale of variables.
+    /// Computes the Jacobian matrix of the system of equations in given point
+    /// with given scale of variables.
     ///
     /// The parameter `x` is mutable to allow temporary mutations avoiding
     /// unnecessary allocations, but after this method ends, the content of the
@@ -55,19 +55,19 @@ impl<F: System> Jacobian<F> {
     ///
     /// Information about variable scale is useful for problematic cases of
     /// finite differentiation (e.g., when the value is near zero).
-    pub fn compute<Sx, Sscale, Sfx>(
+    pub fn compute<Sx, Sscale, Srx>(
         &mut self,
-        f: &F,
-        x: &mut Vector<F::Field, Dyn, Sx>,
-        scale: &Vector<F::Field, Dyn, Sscale>,
-        fx: &Vector<F::Field, Dyn, Sfx>,
+        r: &R,
+        x: &mut Vector<R::Field, Dyn, Sx>,
+        scale: &Vector<R::Field, Dyn, Sscale>,
+        rx: &Vector<R::Field, Dyn, Srx>,
     ) -> &mut Self
     where
-        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
-        Sscale: Storage<F::Field, Dyn>,
-        Sfx: Storage<F::Field, Dyn>,
+        Sx: StorageMut<R::Field, Dyn> + IsContiguous,
+        Sscale: Storage<R::Field, Dyn>,
+        Srx: Storage<R::Field, Dyn>,
     {
-        let eps = F::Field::EPSILON_SQRT;
+        let eps = R::Field::EPSILON_SQRT;
 
         for (j, mut col) in self.jac.column_iter_mut().enumerate() {
             let xj = x[j];
@@ -75,22 +75,22 @@ impl<F: System> Jacobian<F> {
             // Compute the step size. We would like to have the step as small as
             // possible (to be as close to the zero -- i.e., real derivative --
             // the real derivative as possible). But at the same time, very
-            // small step could cause F(x + e_j * step_j) ~= F(x) with very
+            // small step could cause r(x + e_j * step_j) ~= r(x) with very
             // small number of good digits.
             //
             // A reasonable way to balance these competing needs is to scale
             // each component by x_j itself. To avoid problems when x_j is close
             // to zero, it is modified to take the typical magnitude instead.
-            let magnitude = F::Field::one() / scale[j];
-            let step = eps * xj.abs().max(magnitude) * xj.copysign(F::Field::one());
-            let step = if step == F::Field::zero() { eps } else { step };
+            let magnitude = R::Field::one() / scale[j];
+            let step = eps * xj.abs().max(magnitude) * xj.copysign(R::Field::one());
+            let step = if step == R::Field::zero() { eps } else { step };
 
             // Update the point.
             x[j] = xj + step;
-            f.eval(x, &mut col);
+            r.eval(x, &mut col);
 
-            // Compute the derivative approximation: J[i, j] = (F(x + e_j * step_j) - F(x)) / step_j.
-            col -= fx;
+            // Compute the derivative approximation: J[i, j] = (r(x + e_j * step_j) - r(x)) / step_j.
+            col -= rx;
             col /= step;
 
             // Restore the original value.
@@ -101,8 +101,8 @@ impl<F: System> Jacobian<F> {
     }
 }
 
-impl<F: Problem> Deref for Jacobian<F> {
-    type Target = OMatrix<F::Field, Dyn, Dyn>;
+impl<R: Problem> Deref for Jacobian<R> {
+    type Target = OMatrix<R::Field, Dyn, Dyn>;
 
     fn deref(&self) -> &Self::Target {
         &self.jac
@@ -116,7 +116,7 @@ pub struct Gradient<F: Problem> {
 }
 
 impl<F: Problem> Gradient<F> {
-    /// Initializes the Gradient matrix with zeros.
+    /// Initializes the gradient vector with zeros.
     pub fn zeros(f: &F) -> Self {
         let dim = Dyn(f.domain().dim());
         Self {
@@ -126,9 +126,8 @@ impl<F: Problem> Gradient<F> {
 }
 
 impl<F: Function> Gradient<F> {
-    /// Compute Compute the gradient vector of the function in given point with
-    /// given scale of variables. See [`compute`](Gradient::compute) for more
-    /// details.
+    /// Computes the gradient vector of the function in given point with given
+    /// scale of variables. See [`compute`](Gradient::compute) for more details.
     pub fn new<Sx, Sscale>(
         f: &F,
         x: &mut Vector<F::Field, Dyn, Sx>,
@@ -144,7 +143,7 @@ impl<F: Function> Gradient<F> {
         grad
     }
 
-    /// Compute the gradient vector of the function in given point with given
+    /// Computes the gradient vector of the function in given point with given
     /// scale of variables.
     ///
     /// The parameter `x` is mutable to allow temporary mutations avoiding
@@ -178,7 +177,7 @@ impl<F: Function> Gradient<F> {
             x[i] = xi + step;
             let fxi = f.apply(x);
 
-            // Compute the derivative approximation: grad[i] = (F(x + e_i * step_i) - F(x)) / step_i.
+            // Compute the derivative approximation: grad[i] = (f(x + e_i * step_i) - f(x)) / step_i.
             self.grad[i] = (fxi - fx) / step;
 
             // Restore the original value.
@@ -197,7 +196,7 @@ impl<F: Problem> Deref for Gradient<F> {
     }
 }
 
-/// Hessian matrix of a system.
+/// Hessian matrix of a function.
 #[derive(Debug)]
 pub struct Hessian<F: Problem> {
     hes: OMatrix<F::Field, Dyn, Dyn>,
@@ -218,9 +217,8 @@ impl<F: Problem> Hessian<F> {
 }
 
 impl<F: Function> Hessian<F> {
-    /// Compute Compute the Hessian matrix of the function in given point with
-    /// given scale of variables. See [`compute`](Hessian::compute) for more
-    /// details.
+    /// Computes the Hessian matrix of the function in given point with given
+    /// scale of variables. See [`compute`](Hessian::compute) for more details.
     pub fn new<Sx, Sscale>(
         f: &F,
         x: &mut Vector<F::Field, Dyn, Sx>,
@@ -236,7 +234,7 @@ impl<F: Function> Hessian<F> {
         hes
     }
 
-    /// Compute the Hessian matrix of the function in given point with given
+    /// Computes the Hessian matrix of the function in given point with given
     /// scale of variables.
     ///
     /// The parameter `x` is mutable to allow temporary mutations avoiding

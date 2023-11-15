@@ -7,7 +7,7 @@
 //!
 //! # References
 //!
-//! \[1\] [Wikipedia](https://en.wikipedia.org/wiki/Steffensen%27s_method)
+//! \[1\] [Steffensen's method](https://en.wikipedia.org/wiki/Steffensen%27s_method) on Wikipedia
 //!
 //! \[2\] [A variant of Steffensen's method of fourth-order convergence and its
 //! applications](https://www.sciencedirect.com/science/article/pii/S0096300310002705)
@@ -34,15 +34,15 @@ pub enum SteffensenVariant {
 /// Options for [`Steffensen`] solver.
 #[derive(Debug, Clone, CopyGetters, Setters)]
 #[getset(get_copy = "pub", set = "pub")]
-pub struct SteffensenOptions<F: Problem> {
+pub struct SteffensenOptions<P: Problem> {
     /// Variant of the Steffensen's method. Default: Liu (see
     /// [`SteffensenVariant`]).
     variant: SteffensenVariant,
     #[getset(skip)]
-    _phantom: PhantomData<F::Field>,
+    _phantom: PhantomData<P::Field>,
 }
 
-impl<F: Problem> Default for SteffensenOptions<F> {
+impl<P: Problem> Default for SteffensenOptions<P> {
     fn default() -> Self {
         Self {
             variant: SteffensenVariant::Liu,
@@ -51,19 +51,21 @@ impl<F: Problem> Default for SteffensenOptions<F> {
     }
 }
 
-/// Steffensen solver. See [module](self) documentation for more details.
-pub struct Steffensen<F: Problem> {
-    options: SteffensenOptions<F>,
+/// Steffensen solver.
+///
+/// See [module](self) documentation for more details.
+pub struct Steffensen<P: Problem> {
+    options: SteffensenOptions<P>,
 }
 
-impl<F: Problem> Steffensen<F> {
+impl<P: Problem> Steffensen<P> {
     /// Initializes Steffensen solver with default options.
-    pub fn new(f: &F, dom: &Domain<F::Field>) -> Self {
-        Self::with_options(f, dom, SteffensenOptions::default())
+    pub fn new(p: &P, dom: &Domain<P::Field>) -> Self {
+        Self::with_options(p, dom, SteffensenOptions::default())
     }
 
     /// Initializes Steffensen solver with given options.
-    pub fn with_options(_f: &F, _dom: &Domain<F::Field>, options: SteffensenOptions<F>) -> Self {
+    pub fn with_options(_p: &P, _dom: &Domain<P::Field>, options: SteffensenOptions<P>) -> Self {
         Self { options }
     }
 
@@ -79,21 +81,21 @@ pub enum SteffensenError {
     InvalidDimensionality,
 }
 
-impl<F: System> Solver<F> for Steffensen<F> {
+impl<R: System> Solver<R> for Steffensen<R> {
     const NAME: &'static str = "Steffensen";
 
     type Error = SteffensenError;
 
-    fn solve_next<Sx, Sfx>(
+    fn solve_next<Sx, Srx>(
         &mut self,
-        f: &F,
-        dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dyn, Sx>,
-        fx: &mut Vector<F::Field, Dyn, Sfx>,
+        r: &R,
+        dom: &Domain<R::Field>,
+        x: &mut Vector<R::Field, Dyn, Sx>,
+        rx: &mut Vector<R::Field, Dyn, Srx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<F::Field, Dyn>,
+        Sx: StorageMut<R::Field, Dyn> + IsContiguous,
+        Srx: StorageMut<R::Field, Dyn>,
     {
         if dom.dim() != 1 {
             return Err(SteffensenError::InvalidDimensionality);
@@ -103,53 +105,53 @@ impl<F: System> Solver<F> for Steffensen<F> {
 
         let x0 = x[0];
 
-        // Compute f(x).
-        f.eval(x, fx);
-        let fx0 = fx[0];
+        // Compute r0(x).
+        r.eval(x, rx);
+        let r0x = rx[0];
 
-        if fx0 == convert(0.0) {
+        if r0x == convert(0.0) {
             // No more solving to be done.
             return Ok(());
         }
 
         match variant {
             SteffensenVariant::Standard => {
-                // Compute z = f(x + f(x)) and f(z).
-                x[0] += fx0;
-                f.eval(x, fx);
-                let fz0 = fx[0];
+                // Compute z = f(x + r0(x)) and r0(z).
+                x[0] += r0x;
+                r.eval(x, rx);
+                let fz0 = rx[0];
 
                 // Compute the next point.
-                x[0] = x0 - (fx0 * fx0) / (fz0 - fx0);
+                x[0] = x0 - (r0x * r0x) / (fz0 - r0x);
 
-                // Compute f(x).
-                f.eval(x, fx);
+                // Compute r0(x).
+                r.eval(x, rx);
             }
             SteffensenVariant::Liu => {
-                // Compute z = f(x + f(x)) and f(z).
-                x[0] += fx0;
+                // Compute z = f(x + r0(x)) and r0(z).
+                x[0] += r0x;
                 let z0 = x[0];
-                f.eval(x, fx);
-                let fz0 = fx[0];
+                r.eval(x, rx);
+                let r0z = rx[0];
 
-                // Compute f[x, z].
-                let f_xz = (fz0 - fx0) / (z0 - x0);
+                // Compute r0[x, z].
+                let r0_xz = (r0z - r0x) / (z0 - x0);
 
-                // Compute y = x - f(x) / f[x, z] and f(y).
-                x[0] = x0 - fx0 / f_xz;
+                // Compute y = x - r0(x) / r0[x, z] and r0(y).
+                x[0] = x0 - r0x / r0_xz;
                 let y0 = x[0];
-                f.eval(x, fx);
-                let fy0 = fx[0];
+                r.eval(x, rx);
+                let r0y = rx[0];
 
-                // Compute f[x, y] and f[y, z].
-                let f_xy = (fy0 - fx0) / (y0 - x0);
-                let f_yz = (fz0 - fy0) / (z0 - y0);
+                // Compute r0[x, y] and r0[y, z].
+                let r0_xy = (r0y - r0x) / (y0 - x0);
+                let r0_yz = (r0z - r0y) / (z0 - y0);
 
                 // Compute the next point.
-                x[0] = y0 - (f_xy - f_yz + f_xz) / (f_xy * f_xy) * fy0;
+                x[0] = y0 - (r0_xy - r0_yz + r0_xz) / (r0_xy * r0_xy) * r0y;
 
-                // Compute f(x).
-                f.eval(x, fx);
+                // Compute r0(x).
+                r.eval(x, rx);
             }
         }
 

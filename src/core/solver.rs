@@ -2,26 +2,23 @@ use nalgebra::{storage::StorageMut, Dyn, IsContiguous, Vector};
 
 use super::{domain::Domain, system::System};
 
-/// Common interface for all solvers.
+/// Interface of a solver.
 ///
-/// All solvers implement a common interface defined by the [`Solver`] trait.
-/// The essential method is [`solve_next`](Solver::solve_next) which takes
-/// variables *x* and computes the next step. Thus it represents one iteration
-/// in the process. Repeated call to this method should converge *x* to the
-/// solution in successful cases.
+/// A solver is an iterative algorithm which takes a point _x_ and computes the
+/// next step in the solving process. Repeated calls to the next step should
+/// eventually converge into a solution _x'_ in successful cases.
 ///
-/// If you implement a solver, please consider make it a contribution to this
-/// library.
+/// If you implement a solver, please reach out to discuss if we could include
+/// it in gomez.
 ///
 /// ## Implementing a solver
 ///
-/// Here is an implementation of a random solver (if such a thing can be called
-/// a solver) which randomly generates values in a hope that a solution can be
-/// found with enough luck.
+/// Here is an implementation of a random "solver" which randomly generates
+/// values in a hope that a solution can be found with enough luck.
 ///
 /// ```rust
 /// use gomez::nalgebra as na;
-/// use gomez::*;
+/// use gomez::{Domain, Sample, Solver, System};
 /// use na::{storage::StorageMut, Dyn, IsContiguous, Vector};
 /// use fastrand::Rng;
 ///
@@ -35,63 +32,57 @@ use super::{domain::Domain, system::System};
 ///     }
 /// }
 ///
-/// impl<F: System> Solver<F> for Random
+/// impl<R: System> Solver<R> for Random
 /// where
-///     F::Field: Sample,
+///     R::Field: Sample,
 /// {
 ///     const NAME: &'static str = "Random";
 ///     type Error = std::convert::Infallible;
 ///
-///     fn solve_next<Sx, Sfx>(
+///     fn solve_next<Sx, Srx>(
 ///         &mut self,
-///         f: &F,
-///         dom: &Domain<F::Field>,
-///         x: &mut Vector<F::Field, Dyn, Sx>,
-///         fx: &mut Vector<F::Field, Dyn, Sfx>,
+///         r: &R,
+///         dom: &Domain<R::Field>,
+///         x: &mut Vector<R::Field, Dyn, Sx>,
+///         rx: &mut Vector<R::Field, Dyn, Srx>,
 ///     ) -> Result<(), Self::Error>
 ///     where
-///         Sx: StorageMut<F::Field, Dyn> + IsContiguous,
-///         Sfx: StorageMut<F::Field, Dyn>,
+///         Sx: StorageMut<R::Field, Dyn> + IsContiguous,
+///         Srx: StorageMut<R::Field, Dyn>,
 ///     {
 ///         // Randomly sample in the domain.
 ///         dom.sample(x, &mut self.rng);
 ///
 ///         // We must compute the residuals.
-///         f.eval(x, fx);
+///         r.eval(x, rx);
 ///
 ///         Ok(())
 ///     }
 /// }
 /// ```
-pub trait Solver<F: System> {
+pub trait Solver<R: System> {
     /// Name of the solver.
     const NAME: &'static str;
 
-    /// Error type of the iteration. Represents an invalid operation during
-    /// computing the next step.
+    /// Error while computing the next step.
     type Error;
 
     /// Computes the next step in the solving process.
     ///
-    /// The value of `x` is the current values of variables. After the method
-    /// returns, `x` should hold the variable values of the performed step and
-    /// `fx` *must* contain residuals of that step as computed by
-    /// [`System::eval`].
+    /// The value of `x` is the current point. After the method returns, `x`
+    /// should hold the variable values of the performed step and `rx` _must_
+    /// contain residuals of that step as computed by [`System::eval`].
     ///
-    /// It is implementation error not to compute the residuals of the computed
-    /// step.
-    ///
-    /// The implementations *can* assume that subsequent calls to `next` pass
-    /// the value of `x` as was outputted in the previous iteration by the same
-    /// method.
-    fn solve_next<Sx, Sfx>(
+    /// The implementations _can_ assume that subsequent calls to `solve_next`
+    /// pass the value of `x` as was returned in the previous iteration.
+    fn solve_next<Sx, Srx>(
         &mut self,
-        f: &F,
-        dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dyn, Sx>,
-        fx: &mut Vector<F::Field, Dyn, Sfx>,
+        r: &R,
+        dom: &Domain<R::Field>,
+        x: &mut Vector<R::Field, Dyn, Sx>,
+        rx: &mut Vector<R::Field, Dyn, Srx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<F::Field, Dyn>;
+        Sx: StorageMut<R::Field, Dyn> + IsContiguous,
+        Srx: StorageMut<R::Field, Dyn>;
 }

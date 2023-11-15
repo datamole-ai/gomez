@@ -53,25 +53,25 @@ pub enum DeltaInit<S> {
 /// Options for [`TrustRegion`] solver.
 #[derive(Debug, Clone, CopyGetters, Setters)]
 #[getset(get_copy = "pub", set = "pub")]
-pub struct TrustRegionOptions<F: Problem> {
+pub struct TrustRegionOptions<P: Problem> {
     /// Minimum allowed trust region size. Default: `f64::EPSILON.sqrt()`.
-    delta_min: F::Field,
+    delta_min: P::Field,
     /// Maximum allowed trust region size. Default: `1e9`.
-    delta_max: F::Field,
+    delta_max: P::Field,
     /// Initial trust region size. Default: estimated (see [`DeltaInit`]).
-    delta_init: DeltaInit<F::Field>,
+    delta_init: DeltaInit<P::Field>,
     /// Minimum scaling factor for lambda in Levenberg-Marquardt step. Default:
     /// `1e-10`.
-    mu_min: F::Field,
+    mu_min: P::Field,
     /// Threshold for gain ratio to shrink trust region size if lower. Default:
     /// `0.25`.
-    shrink_thresh: F::Field,
+    shrink_thresh: P::Field,
     /// Threshold for gain ratio to expand trust region size if higher. Default:
     /// `0.75`.
-    expand_thresh: F::Field,
+    expand_thresh: P::Field,
     /// Threshold for gain ratio that needs to be exceeded to accept the
     /// calculated step. Default: `0.0001`.
-    accept_thresh: F::Field,
+    accept_thresh: P::Field,
     /// Number of step rejections that are allowed to happen before returning
     /// [`TrustRegionError::NoProgress`] error. Default: `10`.
     rejections_thresh: usize,
@@ -82,7 +82,7 @@ pub struct TrustRegionOptions<F: Problem> {
     prefer_greater_magnitude_in_cauchy: bool,
 }
 
-impl<F: Problem> TrustRegionOptions<F> {
+impl<P: Problem> TrustRegionOptions<P> {
     // XXX: This is a hack. Setting this to true influences the solver in a way
     // that is not based on mathematical theory. However, when used, this makes
     // the solver to work substantially better for specific cases. I can't
@@ -99,10 +99,10 @@ impl<F: Problem> TrustRegionOptions<F> {
     }
 }
 
-impl<F: Problem> Default for TrustRegionOptions<F> {
+impl<P: Problem> Default for TrustRegionOptions<P> {
     fn default() -> Self {
         Self {
-            delta_min: F::Field::EPSILON_SQRT,
+            delta_min: P::Field::EPSILON_SQRT,
             delta_max: convert(1e9),
             delta_init: DeltaInit::Estimated,
             mu_min: convert(1e-10),
@@ -116,39 +116,41 @@ impl<F: Problem> Default for TrustRegionOptions<F> {
     }
 }
 
-/// Trust region solver. See [module](self) documentation for more details.
-pub struct TrustRegion<F: Problem> {
-    options: TrustRegionOptions<F>,
-    delta: F::Field,
-    mu: F::Field,
-    scale: OVector<F::Field, Dyn>,
-    jac: Jacobian<F>,
-    grad: Gradient<F>,
-    hes: Hessian<F>,
-    q_tr_fx_neg: OVector<F::Field, Dyn>,
-    newton: OVector<F::Field, Dyn>,
-    grad_neg: OVector<F::Field, Dyn>,
-    cauchy: OVector<F::Field, Dyn>,
-    jac_tr_jac: OMatrix<F::Field, Dyn, Dyn>,
-    p: OVector<F::Field, Dyn>,
-    temp: OVector<F::Field, Dyn>,
+/// Trust region solver.
+///
+/// See [module](self) documentation for more details.
+pub struct TrustRegion<P: Problem> {
+    options: TrustRegionOptions<P>,
+    delta: P::Field,
+    mu: P::Field,
+    scale: OVector<P::Field, Dyn>,
+    jac: Jacobian<P>,
+    grad: Gradient<P>,
+    hes: Hessian<P>,
+    q_tr_rx_neg: OVector<P::Field, Dyn>,
+    newton: OVector<P::Field, Dyn>,
+    grad_neg: OVector<P::Field, Dyn>,
+    cauchy: OVector<P::Field, Dyn>,
+    jac_tr_jac: OMatrix<P::Field, Dyn, Dyn>,
+    p: OVector<P::Field, Dyn>,
+    temp: OVector<P::Field, Dyn>,
     iter: usize,
     rejections_cnt: usize,
 }
 
-impl<F: Problem> TrustRegion<F> {
+impl<P: Problem> TrustRegion<P> {
     /// Initializes trust region solver with default options.
-    pub fn new(f: &F, dom: &Domain<F::Field>) -> Self {
-        Self::with_options(f, dom, TrustRegionOptions::default())
+    pub fn new(p: &P, dom: &Domain<P::Field>) -> Self {
+        Self::with_options(p, dom, TrustRegionOptions::default())
     }
 
     /// Initializes trust region solver with given options.
-    pub fn with_options(f: &F, dom: &Domain<F::Field>, options: TrustRegionOptions<F>) -> Self {
+    pub fn with_options(p: &P, dom: &Domain<P::Field>, options: TrustRegionOptions<P>) -> Self {
         let dim = Dyn(dom.dim());
         let delta_init = match options.delta_init {
             DeltaInit::Fixed(fixed) => fixed,
             // Zero is recognized in the function `next`.
-            DeltaInit::Estimated => F::Field::zero(),
+            DeltaInit::Estimated => P::Field::zero(),
         };
         let scale = dom
             .scale()
@@ -160,10 +162,10 @@ impl<F: Problem> TrustRegion<F> {
             delta: delta_init,
             mu: convert(0.5),
             scale,
-            jac: Jacobian::zeros(f),
-            grad: Gradient::zeros(f),
-            hes: Hessian::zeros(f),
-            q_tr_fx_neg: OVector::zeros_generic(dim, U1::name()),
+            jac: Jacobian::zeros(p),
+            grad: Gradient::zeros(p),
+            hes: Hessian::zeros(p),
+            q_tr_rx_neg: OVector::zeros_generic(dim, U1::name()),
             newton: OVector::zeros_generic(dim, U1::name()),
             grad_neg: OVector::zeros_generic(dim, U1::name()),
             cauchy: OVector::zeros_generic(dim, U1::name()),
@@ -179,7 +181,7 @@ impl<F: Problem> TrustRegion<F> {
     pub fn reset(&mut self) {
         self.delta = match self.options.delta_init {
             DeltaInit::Fixed(fixed) => fixed,
-            DeltaInit::Estimated => F::Field::zero(),
+            DeltaInit::Estimated => P::Field::zero(),
         };
         self.mu = convert(0.5);
         self.iter = 1;
@@ -198,21 +200,21 @@ pub enum TrustRegionError {
     NoProgress,
 }
 
-impl<F: System> Solver<F> for TrustRegion<F> {
+impl<R: System> Solver<R> for TrustRegion<R> {
     const NAME: &'static str = "Trust-region";
 
     type Error = TrustRegionError;
 
-    fn solve_next<Sx, Sfx>(
+    fn solve_next<Sx, Srx>(
         &mut self,
-        f: &F,
-        dom: &Domain<F::Field>,
-        x: &mut Vector<F::Field, Dyn, Sx>,
-        fx: &mut Vector<F::Field, Dyn, Sfx>,
+        r: &R,
+        dom: &Domain<R::Field>,
+        x: &mut Vector<R::Field, Dyn, Sx>,
+        rx: &mut Vector<R::Field, Dyn, Srx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<F::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<F::Field, Dyn>,
+        Sx: StorageMut<R::Field, Dyn> + IsContiguous,
+        Srx: StorageMut<R::Field, Dyn>,
     {
         let TrustRegionOptions {
             delta_min,
@@ -232,7 +234,7 @@ impl<F: System> Solver<F> for TrustRegion<F> {
             mu,
             scale,
             jac,
-            q_tr_fx_neg,
+            q_tr_rx_neg,
             newton,
             grad_neg,
             cauchy,
@@ -245,9 +247,9 @@ impl<F: System> Solver<F> for TrustRegion<F> {
         } = self;
 
         #[allow(clippy::needless_late_init)]
-        let scaled_newton: &mut OVector<F::Field, Dyn>;
-        let scale_inv2: &mut OVector<F::Field, Dyn>;
-        let cauchy_scaled: &mut OVector<F::Field, Dyn>;
+        let scaled_newton: &mut OVector<R::Field, Dyn>;
+        let scale_inv2: &mut OVector<R::Field, Dyn>;
+        let cauchy_scaled: &mut OVector<R::Field, Dyn>;
 
         #[derive(Debug, Clone, Copy, PartialEq)]
         enum StepType {
@@ -258,13 +260,13 @@ impl<F: System> Solver<F> for TrustRegion<F> {
             Dogleg,
         }
 
-        // Compute F(x) and F'(x).
-        f.eval(x, fx);
-        jac.compute(f, x, scale, fx);
+        // Compute r(x) and r'(x).
+        r.eval(x, rx);
+        jac.compute(r, x, scale, rx);
 
-        let fx_norm = fx.norm();
+        let rx_norm = rx.norm();
 
-        let estimate_delta = *delta == F::Field::zero();
+        let estimate_delta = *delta == R::Field::zero();
         if estimate_delta {
             // Zero delta signifies that the initial delta is to be set
             // automatically and it has not been done yet.
@@ -278,8 +280,8 @@ impl<F: System> Solver<F> for TrustRegion<F> {
             // where K = 100. The approach is taken from GSL.
             for (j, col) in jac.column_iter().enumerate() {
                 temp[j] = col.norm();
-                if temp[j] == F::Field::zero() {
-                    temp[j] = F::Field::one();
+                if temp[j] == R::Field::zero() {
+                    temp[j] = R::Field::one();
                 }
             }
             temp.component_mul_assign(x);
@@ -287,21 +289,21 @@ impl<F: System> Solver<F> for TrustRegion<F> {
             let factor = convert(100.0);
             *delta = temp.norm() * factor;
 
-            if *delta == F::Field::zero() {
+            if *delta == R::Field::zero() {
                 *delta = factor;
             }
         }
 
         // Perform QR decomposition of F'(x).
-        let (q, r) = jac.clone_owned().qr().unpack();
+        let (qr_q, qr_r) = jac.clone_owned().qr().unpack();
 
-        // Compute -Q^T F(x).
-        q.tr_mul_to(fx, q_tr_fx_neg);
-        q_tr_fx_neg.neg_mut();
+        // Compute -Q^T r(x).
+        qr_q.tr_mul_to(rx, q_tr_rx_neg);
+        q_tr_rx_neg.neg_mut();
 
-        // Find the Newton step by solving the system R newton = -Q^T F(x).
-        newton.copy_from(q_tr_fx_neg);
-        let is_newton_valid = r.solve_upper_triangular_mut(newton);
+        // Find the Newton step by solving the system R newton = -Q^T r(x).
+        newton.copy_from(q_tr_rx_neg);
+        let is_newton_valid = qr_r.solve_upper_triangular_mut(newton);
 
         if !is_newton_valid {
             // TODO: Moore-Penrose pseudoinverse?
@@ -309,7 +311,7 @@ impl<F: System> Solver<F> for TrustRegion<F> {
                 "Newton step is invalid for ill-defined Jacobian (zero columns: {:?})",
                 jac.column_iter()
                     .enumerate()
-                    .filter(|(_, col)| col.norm() == F::Field::zero())
+                    .filter(|(_, col)| col.norm() == R::Field::zero())
                     .map(|(i, _)| i)
                     .collect::<Vec<_>>()
             );
@@ -330,12 +332,12 @@ impl<F: System> Solver<F> for TrustRegion<F> {
             // Newton step is outside the trust region. We need to involve the
             // gradient.
 
-            // Compute -grad F(x) = -F'(x)^T F(x) = -R^T Q^T F(x).
-            r.tr_mul_to(q_tr_fx_neg, grad_neg);
+            // Compute -grad r(x) = -r'(x)^T r(x) = -R^T Q^T r(x).
+            qr_r.tr_mul_to(q_tr_rx_neg, grad_neg);
 
             let grad_norm = grad_neg.norm();
 
-            if grad_norm == F::Field::zero() {
+            if grad_norm == R::Field::zero() {
                 // Gradient is zero, it is useless to compute the dogleg step.
                 // Instead, we take the Newton direction to the trust region
                 // boundary.
@@ -354,7 +356,7 @@ impl<F: System> Solver<F> for TrustRegion<F> {
                 // Compute D^(-2) (use p for storage).
                 scale_inv2 = p;
                 scale_inv2.copy_from(scale);
-                scale_inv2.apply(|s| *s = F::Field::one() / (*s * *s));
+                scale_inv2.apply(|s| *s = R::Field::one() / (*s * *s));
 
                 // Compute g = -D^(-2) grad F, the steepest descent direction in
                 // scaled space (use cauchy for storage).
@@ -362,7 +364,7 @@ impl<F: System> Solver<F> for TrustRegion<F> {
                 cauchy.component_mul_assign(grad_neg);
                 let p = scale_inv2;
 
-                // Compute tau = -(grad F)^T g / || F'(x) g ||^2.
+                // Compute tau = -(grad r)^T g / || r'(x) g ||^2.
                 jac.mul_to(cauchy, temp);
                 let jac_g_norm2 = temp.norm_squared();
                 let grad_neg_g = if !prefer_greater_magnitude_in_cauchy {
@@ -452,7 +454,7 @@ impl<F: System> Solver<F> for TrustRegion<F> {
 
                     #[allow(clippy::suspicious_operation_groupings)]
                     let d = (b * b + a * c_neg).sqrt();
-                    let alpha = if b <= F::Field::zero() {
+                    let alpha = if b <= R::Field::zero() {
                         (-b + d) / a
                     } else {
                         c_neg / (b + d)
@@ -474,33 +476,33 @@ impl<F: System> Solver<F> for TrustRegion<F> {
                     // which overcomes this issue but at higher computational
                     // expense. We are looking for lambda such that
                     //
-                    //     (B + lambda I) p = - grad F(x)
+                    //     (B + lambda I) p = - grad r(x)
                     //
                     // such that p is the solution to
                     //
-                    //     min 1/2 || F'(x) p + F(x) ||^2 s.t. || D p || <= delta.
+                    //     min 1/2 || r'(x) p + r(x) ||^2 s.t. || D p || <= delta.
                     //
                     // Determine lambda for Levenberg-Marquardt. A common choice
                     // proven to lead to quadratic convergence is
                     //
-                    //     lambda = || F(x) ||^d,
+                    //     lambda = || r(x) ||^d,
                     //
                     // where d is from (0, 2]. An adaptive choice for d is:
                     //
-                    //     d = 1 / || F(x) || if || F(x) || >= 1 and 1 + 1 / k otherwise,
+                    //     d = 1 / || r(x) || if || r(x) || >= 1 and 1 + 1 / k otherwise,
                     //
                     // where k denotes the current iteration. Such choice
                     // ensures that lambda is not large when the point is far
-                    // from the solution (i.e., for large || F(x) ||).
+                    // from the solution (i.e., for large || r(x) ||).
 
                     // Determine lambda.
-                    let d = if fx_norm >= F::Field::one() {
-                        F::Field::one() / fx_norm
+                    let d = if rx_norm >= R::Field::one() {
+                        R::Field::one() / rx_norm
                     } else {
-                        F::Field::one() + F::Field::one() / convert(*iter as f64)
+                        R::Field::one() + R::Field::one() / convert(*iter as f64)
                     };
 
-                    let lambda = *mu * fx_norm.powf(d);
+                    let lambda = *mu * rx_norm.powf(d);
 
                     // Compute B = F'(x)^T F'(x), which is a symmetric matrix.
                     jac.tr_mul_to(jac, jac_tr_jac);
@@ -511,7 +513,7 @@ impl<F: System> Solver<F> for TrustRegion<F> {
                         jac_tr_jac_lambda[(i, i)] += lambda;
                     }
 
-                    // Solve p for (B + lambda I) p = - grad F(x).
+                    // Solve p for (B + lambda I) p = - grad r(x).
                     p.copy_from(grad_neg);
 
                     let is_levenberg_marquardt_valid =
@@ -551,7 +553,7 @@ impl<F: System> Solver<F> for TrustRegion<F> {
         // Vectors for Newton and Cauchy steps are no longed used, so we reuse
         // their allocations for another purpose.
         let x_trial = newton;
-        let fx_trial = cauchy;
+        let rx_trial = cauchy;
 
         // Get candidate x' for the next iterate.
         x.add_to(p, x_trial);
@@ -565,27 +567,27 @@ impl<F: System> Solver<F> for TrustRegion<F> {
             x_trial.sub_to(x, p);
         }
 
-        // Compute F(x').
-        f.eval(x_trial, fx_trial);
-        let is_trial_valid = fx_trial.iter().all(|fxi| fxi.is_finite());
-        let fx_trial_norm = fx_trial.norm();
+        // Compute r(x').
+        r.eval(x_trial, rx_trial);
+        let is_trial_valid = rx_trial.iter().all(|rix| rix.is_finite());
+        let rx_trial_norm = rx_trial.norm();
 
         let gain_ratio = if is_trial_valid {
             // Compute the gain ratio.
             jac.mul_to(p, temp);
-            *temp += &*fx;
-            let predicted = fx_norm - temp.norm();
+            *temp += &*rx;
+            let predicted = rx_norm - temp.norm();
 
             let deny = if allow_ascent {
                 // If ascent is allowed, then check only for zero, which would
                 // make the gain ratio calculation ill-defined.
-                predicted == F::Field::zero()
+                predicted == R::Field::zero()
             } else {
                 // If ascent is not allowed, test positivity of the predicted
                 // gain. Note that even if the actual reduction was positive,
                 // the step would be rejected anyway because the gain ratio
                 // would be negative.
-                predicted <= F::Field::zero()
+                predicted <= R::Field::zero()
             };
 
             if deny {
@@ -594,9 +596,9 @@ impl<F: System> Solver<F> for TrustRegion<F> {
                 } else {
                     debug!("predicted gain <= 0");
                 }
-                F::Field::zero()
+                R::Field::zero()
             } else {
-                let actual = fx_norm - fx_trial_norm;
+                let actual = rx_norm - rx_trial_norm;
                 let gain_ratio = actual / predicted;
                 debug!("gain ratio = {} / {} = {}", actual, predicted, gain_ratio);
 
@@ -604,17 +606,17 @@ impl<F: System> Solver<F> for TrustRegion<F> {
             }
         } else {
             debug!("trial step is invalid, gain ratio = 0");
-            F::Field::zero()
+            R::Field::zero()
         };
 
         // Decide if the step is accepted or not.
         if gain_ratio > accept_thresh {
             // Accept the trial step.
             x.copy_from(x_trial);
-            fx.copy_from(fx_trial);
+            rx.copy_from(rx_trial);
             debug!(
-                "step accepted, || fx || = {}, x = {:?}",
-                fx_trial_norm,
+                "step accepted, || rx || = {}, x = {:?}",
+                rx_trial_norm,
                 x_trial.as_slice()
             );
 
@@ -710,7 +712,7 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
             scale,
             hes,
             grad,
-            q_tr_fx_neg: q_tr_grad_neg,
+            q_tr_rx_neg: q_tr_grad_neg,
             newton,
             grad_neg,
             cauchy,
@@ -744,16 +746,16 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
         }
 
         // Perform QR decomposition of H(x).
-        let (q, r) = hes.clone_owned().qr().unpack();
+        let (qr_q, qr_r) = hes.clone_owned().qr().unpack();
 
         // Compute -Q^T grad f(x).
         grad_neg.copy_from(grad);
         grad_neg.neg_mut();
-        q.tr_mul_to(grad_neg, q_tr_grad_neg);
+        qr_q.tr_mul_to(grad_neg, q_tr_grad_neg);
 
         // Find the Newton step by solving the system R newton = -Q^T grad f(x).
         newton.copy_from(q_tr_grad_neg);
-        let is_newton_valid = r.solve_upper_triangular_mut(newton);
+        let is_newton_valid = qr_r.solve_upper_triangular_mut(newton);
 
         if !is_newton_valid {
             // TODO: Moore-Penrose pseudoinverse?

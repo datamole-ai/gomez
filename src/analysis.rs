@@ -1,4 +1,4 @@
-//! Various analyses for supporting the solving.
+//! Various supporting analyses.
 
 use nalgebra::{
     convert, storage::StorageMut, ComplexField, DimName, Dyn, IsContiguous, OVector, RealField,
@@ -36,16 +36,16 @@ pub fn estimate_magnitude_from_bounds<T: RealField + Copy>(lower: T, upper: T) -
 ///
 /// \[1\] [On the Choice of Initial Guesses for the Newton-Raphson
 /// Algorithm](https://arxiv.org/abs/1911.12433)
-pub fn detect_non_linear_vars_in_system<F, Sx, Sfx>(
-    f: &F,
-    dom: &Domain<F::Field>,
-    x: &mut Vector<F::Field, Dyn, Sx>,
-    fx: &mut Vector<F::Field, Dyn, Sfx>,
+pub fn detect_non_linear_vars_in_system<R, Sx, Srx>(
+    r: &R,
+    dom: &Domain<R::Field>,
+    x: &mut Vector<R::Field, Dyn, Sx>,
+    rx: &mut Vector<R::Field, Dyn, Srx>,
 ) -> Vec<usize>
 where
-    F: System,
-    Sx: StorageMut<F::Field, Dyn> + IsContiguous,
-    Sfx: StorageMut<F::Field, Dyn>,
+    R: System,
+    Sx: StorageMut<R::Field, Dyn> + IsContiguous,
+    Srx: StorageMut<R::Field, Dyn>,
 {
     let dim = Dyn(dom.dim());
     let scale = dom
@@ -53,24 +53,24 @@ where
         .map(|scale| OVector::from_iterator_generic(dim, U1::name(), scale.iter().copied()))
         .unwrap_or_else(|| OVector::from_element_generic(dim, U1::name(), convert(1.0)));
 
-    // Compute F'(x) in the initial point.
-    f.eval(x, fx);
-    let jac1 = Jacobian::new(f, x, &scale, fx);
+    // Compute r'(x) in the initial point.
+    r.eval(x, rx);
+    let jac1 = Jacobian::new(r, x, &scale, rx);
 
     // Compute Newton step.
-    let mut p = fx.clone_owned();
+    let mut p = rx.clone_owned();
     p.neg_mut();
 
     let qr = jac1.clone_owned().qr();
     qr.solve_mut(&mut p);
 
     // Do Newton step.
-    p *= convert::<_, F::Field>(0.001);
+    p *= convert::<_, R::Field>(0.001);
     *x += p;
 
-    // Compute F'(x) after one Newton step.
-    f.eval(x, fx);
-    let jac2 = Jacobian::new(f, x, &scale, fx);
+    // Compute r'(x) after one Newton step.
+    r.eval(x, rx);
+    let jac2 = Jacobian::new(r, x, &scale, rx);
 
     // Linear variables have no effect on the Jacobian matrix. They can be
     // recognized by observing no change in corresponding columns (i.e.,
@@ -85,7 +85,7 @@ where
         .filter(|(_, (c1, c2))| {
             c1.iter()
                 .zip(c2.iter())
-                .any(|(a, b)| (*a - *b).abs() > F::Field::EPSILON_SQRT)
+                .any(|(a, b)| (*a - *b).abs() > R::Field::EPSILON_SQRT)
         })
         .map(|(col, _)| col)
         .collect()
@@ -134,16 +134,16 @@ mod tests {
     }
 
     impl System for NonLinearTest {
-        fn eval<Sx, Sfx>(
+        fn eval<Sx, Srx>(
             &self,
             x: &Vector<Self::Field, Dyn, Sx>,
-            fx: &mut Vector<Self::Field, Dyn, Sfx>,
+            rx: &mut Vector<Self::Field, Dyn, Srx>,
         ) where
             Sx: nalgebra::Storage<Self::Field, Dyn> + IsContiguous,
-            Sfx: StorageMut<Self::Field, Dyn>,
+            Srx: StorageMut<Self::Field, Dyn>,
         {
-            fx[0] = x[0];
-            fx[1] = x[1].powi(2);
+            rx[0] = x[0];
+            rx[1] = x[1].powi(2);
         }
     }
 
@@ -153,10 +153,10 @@ mod tests {
         let dom = f.domain();
 
         let mut x = nalgebra::dvector![2.0, 2.0];
-        let mut fx = x.clone_owned();
+        let mut rx = x.clone_owned();
 
         assert_eq!(
-            detect_non_linear_vars_in_system(&f, &dom, &mut x, &mut fx),
+            detect_non_linear_vars_in_system(&f, &dom, &mut x, &mut rx),
             vec![1]
         );
     }

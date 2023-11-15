@@ -44,13 +44,13 @@ pub enum PotentialMinimizer {
 /// Options for [`Lipo`] solver.
 #[derive(Debug, Clone, CopyGetters, Setters)]
 #[getset(get_copy = "pub", set = "pub")]
-pub struct LipoOptions<F: Problem> {
+pub struct LipoOptions<P: Problem> {
     /// Probability for Bernoulli distribution of exploring (evaluating sampled
     /// point unconditionally) the space.
     p_explore: f64,
     /// Alpha parameter for (1 + alpha)^i meshgrid for Lipschitz constant
     /// estimation.
-    alpha: AlphaInit<F::Field>,
+    alpha: AlphaInit<P::Field>,
     /// Number of sampling trials. If no potential minimizer is found after this
     /// number of trials, the solver returns error.
     sampling_trials: usize,
@@ -60,7 +60,7 @@ pub struct LipoOptions<F: Problem> {
     local_optimization_iters: usize,
 }
 
-impl<F: Problem> Default for LipoOptions<F> {
+impl<P: Problem> Default for LipoOptions<P> {
     fn default() -> Self {
         Self {
             p_explore: 0.1,
@@ -72,31 +72,33 @@ impl<F: Problem> Default for LipoOptions<F> {
     }
 }
 
-/// LIPO solver. See [module](self) documentation for more details.
-pub struct Lipo<F: Problem> {
-    options: LipoOptions<F>,
-    alpha: F::Field,
-    xs: Vec<OVector<F::Field, Dyn>>,
-    ys: Vec<F::Field>,
+/// LIPO solver.
+///
+/// See [module](self) documentation for more details.
+pub struct Lipo<P: Problem> {
+    options: LipoOptions<P>,
+    alpha: P::Field,
+    xs: Vec<OVector<P::Field, Dyn>>,
+    ys: Vec<P::Field>,
     best: usize,
-    k: F::Field,
-    k_inf: F::Field,
+    k: P::Field,
+    k_inf: P::Field,
     rng: Rng,
     p_explore: f64,
-    tmp: OVector<F::Field, Dyn>,
-    x_tmp: OVector<F::Field, Dyn>,
-    local_optimizer: NelderMead<F>,
+    tmp: OVector<P::Field, Dyn>,
+    x_tmp: OVector<P::Field, Dyn>,
+    local_optimizer: NelderMead<P>,
     iter: usize,
 }
 
-impl<F: Problem> Lipo<F> {
+impl<P: Problem> Lipo<P> {
     /// Initializes LIPO solver with default options.
-    pub fn new(f: &F, dom: &Domain<F::Field>, rng: Rng) -> Self {
-        Self::with_options(f, dom, LipoOptions::default(), rng)
+    pub fn new(p: &P, dom: &Domain<P::Field>, rng: Rng) -> Self {
+        Self::with_options(p, dom, LipoOptions::default(), rng)
     }
 
     /// Initializes LIPO solver with given options.
-    pub fn with_options(f: &F, dom: &Domain<F::Field>, options: LipoOptions<F>, rng: Rng) -> Self {
+    pub fn with_options(p: &P, dom: &Domain<P::Field>, options: LipoOptions<P>, rng: Rng) -> Self {
         let dim = Dyn(dom.dim());
 
         let p_explore = options.p_explore.clamp(0.0, 1.0);
@@ -112,13 +114,13 @@ impl<F: Problem> Lipo<F> {
             xs: Vec::new(),
             ys: Vec::new(),
             best: 0,
-            k: F::Field::zero(),
-            k_inf: F::Field::zero(),
+            k: P::Field::zero(),
+            k_inf: P::Field::zero(),
             rng,
             p_explore,
             tmp: OVector::zeros_generic(dim, U1::name()),
             x_tmp: OVector::zeros_generic(dim, U1::name()),
-            local_optimizer: NelderMead::new(f, dom),
+            local_optimizer: NelderMead::new(p, dom),
             iter: 0,
         }
     }
@@ -128,8 +130,8 @@ impl<F: Problem> Lipo<F> {
         self.xs.clear();
         self.ys.clear();
         self.best = 0;
-        self.k = F::Field::zero();
-        self.k_inf = F::Field::zero();
+        self.k = P::Field::zero();
+        self.k_inf = P::Field::zero();
         self.iter = 0;
     }
 
@@ -140,8 +142,8 @@ impl<F: Problem> Lipo<F> {
     /// the LIPO solver gives extra information for free.
     pub fn add_evaluation(
         &mut self,
-        x: OVector<F::Field, Dyn>,
-        y: F::Field,
+        x: OVector<P::Field, Dyn>,
+        y: P::Field,
     ) -> Result<(), LipoError> {
         let alpha = self.alpha;
 
@@ -177,9 +179,9 @@ impl<F: Problem> Lipo<F> {
                 debug!("|| x - xi || = {}", dist);
             }
 
-            let it = try_convert(((*k_inf).ln() / (F::Field::one() + alpha).ln()).ceil())
+            let it = try_convert(((*k_inf).ln() / (P::Field::one() + alpha).ln()).ceil())
                 .unwrap_or_default() as i32;
-            *k = (F::Field::one() + alpha).powi(it);
+            *k = (P::Field::one() + alpha).powi(it);
 
             if !k.is_finite() {
                 return Err(LipoError::InfiniteLipschitzConstant);
@@ -396,27 +398,27 @@ where
     }
 }
 
-impl<F: System> Solver<F> for Lipo<F>
+impl<R: System> Solver<R> for Lipo<R>
 where
-    F::Field: Sample,
+    R::Field: Sample,
 {
     const NAME: &'static str = "LIPO";
 
     type Error = LipoError;
 
-    fn solve_next<Sx, Sfx>(
+    fn solve_next<Sx, Srx>(
         &mut self,
-        f: &F,
-        dom: &Domain<<F>::Field>,
-        x: &mut Vector<<F>::Field, Dyn, Sx>,
-        fx: &mut Vector<<F>::Field, Dyn, Sfx>,
+        r: &R,
+        dom: &Domain<<R>::Field>,
+        x: &mut Vector<<R>::Field, Dyn, Sx>,
+        rx: &mut Vector<<R>::Field, Dyn, Srx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: StorageMut<<F>::Field, Dyn> + IsContiguous,
-        Sfx: StorageMut<<F>::Field, Dyn>,
+        Sx: StorageMut<<R>::Field, Dyn> + IsContiguous,
+        Srx: StorageMut<<R>::Field, Dyn>,
     {
-        self.next_inner(f, dom, x)?;
-        f.eval(x, fx);
+        self.next_inner(r, dom, x)?;
+        r.eval(x, rx);
         Ok(())
     }
 }

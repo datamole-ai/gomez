@@ -1,4 +1,4 @@
-//! Problem domain definition such as bound constraints for variables.
+//! Problem domain definition (dimensionality, constraints).
 
 use std::iter::FromIterator;
 
@@ -19,7 +19,7 @@ pub struct Domain<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> Domain<T> {
-    /// Creates unconstrained domain with given dimension.
+    /// Creates unconstrained domain with given dimensionality.
     pub fn unconstrained(dim: usize) -> Self {
         assert!(dim > 0, "empty domain");
 
@@ -34,9 +34,9 @@ impl<T: RealField + Copy> Domain<T> {
         }
     }
 
-    /// Creates rectangular domain with given bounds.
+    /// Creates rectangular domain with given lower and upper bounds.
     ///
-    /// Positive and negative infinity can be used to indicate value unbounded
+    /// Positive and negative infinity can be used to indicate a value unbounded
     /// in that dimension and direction. If the entire domain is unconstrained,
     /// use [`Domain::unconstrained`] instead.
     pub fn rect(lower: Vec<T>, upper: Vec<T>) -> Self {
@@ -68,8 +68,10 @@ impl<T: RealField + Copy> Domain<T> {
 
     /// Sets a custom scale for the domain.
     ///
-    /// Scale value of a variable is the inverse of the expected magnitude of
-    /// that variable.
+    /// Scale of a variable is the inverse of its expected magnitude.
+    /// Appropriate scaling may be crucial for an algorithm to work well on
+    /// "poorly scaled" problems with highly varying magnitudes of its
+    /// variables.
     pub fn with_scale(mut self, scale: Vec<T>) -> Self {
         assert!(
             scale.len() == self.lower.nrows(),
@@ -83,7 +85,7 @@ impl<T: RealField + Copy> Domain<T> {
         self
     }
 
-    /// Gets the dimension of the domain.
+    /// Gets the dimensionality of the domain.
     pub fn dim(&self) -> usize {
         self.lower.nrows()
     }

@@ -165,12 +165,12 @@ mod bullard_biegler {
     }
 }
 
-fn bench_solve<F, S, GF, GS>(bencher: divan::Bencher, with_system: GF, with_solver: GS)
+fn bench_solve<R, A, GR, GA>(bencher: divan::Bencher, with_system: GR, with_solver: GA)
 where
-    GF: Fn() -> (F, usize),
-    GS: Fn(&F, &Domain<F::Field>, &na::OVector<F::Field, Dyn>) -> S,
-    F: TestSystem,
-    S: Solver<F>,
+    GR: Fn() -> (R, usize),
+    GA: Fn(&R, &Domain<R::Field>, &na::OVector<R::Field, Dyn>) -> A,
+    R: TestSystem,
+    A: Solver<R>,
 {
     bencher
         .with_inputs(move || {
@@ -181,14 +181,14 @@ where
             (f, dom, x, solver)
         })
         .bench_local_values(|(f, dom, mut x, mut solver)| {
-            let mut fx = x.clone_owned();
+            let mut rx = x.clone_owned();
             let mut iter = 0;
             loop {
-                if solver.solve_next(&f, &dom, &mut x, &mut fx).is_err() {
+                if solver.solve_next(&f, &dom, &mut x, &mut rx).is_err() {
                     panic!("solver error");
                 }
 
-                if fx.norm() < na::convert(TOLERANCE) {
+                if rx.norm() < na::convert(TOLERANCE) {
                     return true;
                 }
 
@@ -201,55 +201,55 @@ where
         });
 }
 
-fn with_trust_region<F>(
-    f: &F,
-    dom: &Domain<F::Field>,
-    _: &na::OVector<F::Field, Dyn>,
-) -> TrustRegion<F>
+fn with_trust_region<R>(
+    r: &R,
+    dom: &Domain<R::Field>,
+    _: &na::OVector<R::Field, Dyn>,
+) -> TrustRegion<R>
 where
-    F: Problem,
+    R: Problem,
 {
-    TrustRegion::new(f, dom)
+    TrustRegion::new(r, dom)
 }
 
-fn with_nelder_mead<F>(
-    f: &F,
-    dom: &Domain<F::Field>,
-    _: &na::OVector<F::Field, Dyn>,
-) -> NelderMead<F>
+fn with_nelder_mead<R>(
+    r: &R,
+    dom: &Domain<R::Field>,
+    _: &na::OVector<R::Field, Dyn>,
+) -> NelderMead<R>
 where
-    F: Problem,
+    R: Problem,
 {
-    NelderMead::new(f, dom)
+    NelderMead::new(r, dom)
 }
 
-fn with_gsl_hybrids<F>(
-    f: &F,
-    _: &Domain<F::Field>,
-    x: &na::OVector<F::Field, Dyn>,
-) -> GslSolverWrapper<GslFunctionWrapper<F>>
+fn with_gsl_hybrids<R>(
+    r: &R,
+    _: &Domain<R::Field>,
+    x: &na::OVector<R::Field, Dyn>,
+) -> GslSolverWrapper<GslFunctionWrapper<R>>
 where
-    F: TestSystem<Field = f64> + Clone,
+    R: TestSystem<Field = f64> + Clone,
 {
     GslSolverWrapper::new(GslFunctionWrapper::new(
-        f.clone(),
+        r.clone(),
         GslVec::from(x.as_slice()),
     ))
 }
 
-pub struct GslFunctionWrapper<F> {
-    f: F,
+pub struct GslFunctionWrapper<R> {
+    r: R,
     init: GslVec,
 }
 
-impl<F> GslFunctionWrapper<F> {
-    pub fn new(f: F, init: GslVec) -> Self {
-        Self { f, init }
+impl<R> GslFunctionWrapper<R> {
+    pub fn new(r: R, init: GslVec) -> Self {
+        Self { r, init }
     }
 }
 
-impl<F: TestSystem<Field = f64>> GslFunction for GslFunctionWrapper<F> {
-    fn eval(&self, x: &GslVec, f: &mut GslVec) -> GslStatus {
+impl<R: TestSystem<Field = f64>> GslFunction for GslFunctionWrapper<R> {
+    fn eval(&self, x: &GslVec, rx: &mut GslVec) -> GslStatus {
         use na::DimName;
         let dim = Dyn(x.len());
 
@@ -258,13 +258,13 @@ impl<F: TestSystem<Field = f64>> GslFunction for GslFunctionWrapper<F> {
             dim,
             na::U1::name(),
         );
-        let mut fx = na::MatrixViewMut::<f64, Dyn, na::U1>::from_slice_generic(
-            f.as_mut_slice(),
+        let mut rx = na::MatrixViewMut::<f64, Dyn, na::U1>::from_slice_generic(
+            rx.as_mut_slice(),
             dim,
             na::U1::name(),
         );
 
-        self.f.eval(&x, &mut fx);
+        self.r.eval(&x, &mut rx);
         GslStatus::ok()
     }
 
@@ -273,37 +273,37 @@ impl<F: TestSystem<Field = f64>> GslFunction for GslFunctionWrapper<F> {
     }
 }
 
-pub struct GslSolverWrapper<F> {
-    solver: GslSolver<F>,
+pub struct GslSolverWrapper<R> {
+    solver: GslSolver<R>,
 }
 
-impl<F: GslFunction> GslSolverWrapper<F> {
-    pub fn new(f: F) -> Self {
+impl<R: GslFunction> GslSolverWrapper<R> {
+    pub fn new(r: R) -> Self {
         Self {
-            solver: GslSolver::new(f, HybridScaled),
+            solver: GslSolver::new(r, HybridScaled),
         }
     }
 }
 
-impl<F: TestSystem<Field = f64>> Solver<F> for GslSolverWrapper<GslFunctionWrapper<F>> {
+impl<R: TestSystem<Field = f64>> Solver<R> for GslSolverWrapper<GslFunctionWrapper<R>> {
     const NAME: &'static str = "GSL hybrids";
 
     type Error = String;
 
-    fn solve_next<Sx, Sfx>(
+    fn solve_next<Sx, Srx>(
         &mut self,
-        _f: &F,
-        _dom: &Domain<F::Field>,
-        x: &mut na::Vector<F::Field, Dyn, Sx>,
-        fx: &mut na::Vector<F::Field, Dyn, Sfx>,
+        _r: &R,
+        _dom: &Domain<R::Field>,
+        x: &mut na::Vector<R::Field, Dyn, Sx>,
+        rx: &mut na::Vector<R::Field, Dyn, Srx>,
     ) -> Result<(), Self::Error>
     where
-        Sx: na::storage::StorageMut<F::Field, Dyn> + IsContiguous,
-        Sfx: na::storage::StorageMut<F::Field, Dyn>,
+        Sx: na::storage::StorageMut<R::Field, Dyn> + IsContiguous,
+        Srx: na::storage::StorageMut<R::Field, Dyn>,
     {
         let result = self.solver.step().to_result();
         x.copy_from_slice(self.solver.root());
-        fx.copy_from_slice(self.solver.residuals());
+        rx.copy_from_slice(self.solver.residuals());
 
         result
     }

@@ -5,14 +5,16 @@ use super::domain::Domain;
 
 /// Trait implemented by real numbers.
 pub trait RealField: nalgebra::RealField {
-    /// Square root of double precision machine epsilon. This value is a
-    /// standard constant for epsilons in approximating first-order
-    /// derivate-based concepts.
+    /// Square root of machine epsilon.
+    ///
+    /// This value is a standard constant for epsilons in approximating
+    /// first-order derivate-based concepts.
     const EPSILON_SQRT: Self;
 
-    /// Cubic root of double precision machine epsilon. This value is a standard
-    /// constant for epsilons in approximating second-order derivate-based
-    /// concepts.
+    /// Cubic root of machine epsilon.
+    ///
+    /// This value is a standard constant for epsilons in approximating
+    /// second-order derivate-based concepts.
     const EPSILON_CBRT: Self;
 }
 
@@ -26,14 +28,13 @@ impl RealField for f64 {
     const EPSILON_CBRT: Self = 0.0000060554544523933395;
 }
 
-/// The base trait for [`System`](super::system::System) and
-/// [`Function`](super::function::Function).
+/// The base trait for [`Function`](super::function::Function) and
+/// [`System`](super::system::System).
 pub trait Problem {
-    /// Type of the field, usually f32 or f64.
+    /// Field type, f32 or f64.
     type Field: RealField + Copy;
 
-    /// Get the domain (bound constraints) of the system. If not overridden, the
-    /// system is unconstrained.
+    /// Domain of the problem.
     fn domain(&self) -> Domain<Self::Field>;
 }
 
