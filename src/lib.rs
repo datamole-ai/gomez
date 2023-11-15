@@ -178,7 +178,7 @@
 //!
 //! let tolerance = 1e-6;
 //!
-//! let result = solver
+//! let (x, fx) = solver
 //!     .find(|state| {
 //!         println!(
 //!             "iter = {}\t|| fx || = {}\tx = {:?}",
@@ -190,8 +190,8 @@
 //!     })
 //!     .expect("solver encountered an error");
 //!
-//! if result <= tolerance {
-//!     println!("solved");
+//! if fx <= tolerance {
+//!     println!("solved: {x:?}");
 //! } else {
 //!     println!("maximum number of iteration exceeded");
 //! }
