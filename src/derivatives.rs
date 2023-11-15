@@ -6,7 +6,7 @@ use nalgebra::{
     storage::{Storage, StorageMut},
     ComplexField, DimName, Dyn, IsContiguous, OMatrix, OVector, RealField, Vector, U1,
 };
-use num_traits::{One, Zero};
+use num_traits::One;
 
 use crate::core::{Function, Problem, RealField as _, System};
 
@@ -74,16 +74,22 @@ impl<R: System> Jacobian<R> {
 
             // Compute the step size. We would like to have the step as small as
             // possible (to be as close to the zero -- i.e., real derivative --
-            // the real derivative as possible). But at the same time, very
-            // small step could cause r(x + e_j * step_j) ~= r(x) with very
-            // small number of good digits.
+            // as possible). But at the same time, very small step could cause
+            // r(x + e_j * step_j) ~= r(x) with very small number of good
+            // digits.
             //
             // A reasonable way to balance these competing needs is to scale
             // each component by x_j itself. To avoid problems when x_j is close
             // to zero, it is modified to take the typical magnitude instead.
+            //
+            // Note that you can find in the literature that the rule for step
+            // size is actually eps * max(|xj|, magnitude) * sign(xj), that is,
+            // the step has the same sign as xj. But that caused scaled
+            // Rosenbrock test to fail for trust region algorithm. This is very
+            // anecdotal evidence and I would like to understand why the sign of
+            // the step is important.
             let magnitude = R::Field::one() / scale[j];
-            let step = eps * xj.abs().max(magnitude) * xj.copysign(R::Field::one());
-            let step = if step == R::Field::zero() { eps } else { step };
+            let step = eps * xj.abs().max(magnitude);
 
             // Update the point.
             x[j] = xj + step;
@@ -170,8 +176,7 @@ impl<F: Function> Gradient<F> {
 
             // See the implementation of Jacobian for details on computing step size.
             let magnitude = F::Field::one() / scale[i];
-            let step = eps * xi.abs().max(magnitude) * F::Field::one().copysign(xi);
-            let step = if step == F::Field::zero() { eps } else { step };
+            let step = eps * xi.abs().max(magnitude);
 
             // Update the point.
             x[i] = xi + step;
@@ -261,8 +266,7 @@ impl<F: Function> Hessian<F> {
 
             // See the implementation of Jacobian for details on computing step size.
             let magnitude = F::Field::one() / scale[i];
-            let step = eps * xi.abs().max(magnitude) * F::Field::one().copysign(xi);
-            let step = if step == F::Field::zero() { eps } else { step };
+            let step = eps * xi.abs().max(magnitude);
 
             // Store the step for Hessian calculation.
             self.steps[i] = step;
