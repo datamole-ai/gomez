@@ -28,7 +28,6 @@ use nalgebra::{
     storage::{Storage, StorageMut},
     ComplexField, Dim, DimName, Dyn, IsContiguous, OVector, RealField, Vector, U1,
 };
-use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::core::{Domain, Function, Optimizer, Problem, RealField as _, Solver, System};
@@ -103,13 +102,14 @@ impl<P: Problem> NelderMeadOptions<P> {
             }
             CoefficientsFamily::Balanced => {
                 let n: P::Field = convert(dom.dim() as f64);
-                let n_inv = P::Field::one() / n;
+                let one: P::Field = convert(1.0);
+                let n_inv = one / n;
 
                 *reflection_coeff = convert(-1.0);
-                *expansion_coeff = -(n_inv * convert(2.0) + convert(1.0));
-                *outer_contraction_coeff = -(P::Field::one() - n_inv);
+                *expansion_coeff = -(n_inv * convert(2.0) + one);
+                *outer_contraction_coeff = -(one - n_inv);
                 *inner_contraction_coeff = -*outer_contraction_coeff;
-                *shrink_coeff = P::Field::one() - n_inv;
+                *shrink_coeff = one - n_inv;
             }
             CoefficientsFamily::GoldenSection => {
                 let alpha = 1.0 / (0.5 * (5f64.sqrt() + 1.0));
@@ -271,7 +271,7 @@ impl<F: Function> NelderMead<F> {
         }
 
         // Calculate the centroid.
-        centroid.fill(F::Field::zero());
+        centroid.fill(convert(0.0));
         (0..n)
             .map(|i| &simplex[sort_perm[i]])
             .for_each(|xi| *centroid += xi);
