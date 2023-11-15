@@ -3,10 +3,10 @@
 use std::ops::Deref;
 
 use nalgebra::{
+    convert,
     storage::{Storage, StorageMut},
     ComplexField, DimName, Dyn, IsContiguous, OMatrix, OVector, RealField, Vector, U1,
 };
-use num_traits::One;
 
 use crate::core::{Function, Problem, RealField as _, System};
 
@@ -68,6 +68,7 @@ impl<R: System> Jacobian<R> {
         Srx: Storage<R::Field, Dyn>,
     {
         let eps = R::Field::EPSILON_SQRT;
+        let one: R::Field = convert(1.0);
 
         for (j, mut col) in self.jac.column_iter_mut().enumerate() {
             let xj = x[j];
@@ -88,7 +89,7 @@ impl<R: System> Jacobian<R> {
             // Rosenbrock test to fail for trust region algorithm. This is very
             // anecdotal evidence and I would like to understand why the sign of
             // the step is important.
-            let magnitude = R::Field::one() / scale[j];
+            let magnitude = one / scale[j];
             let step = eps * xj.abs().max(magnitude);
 
             // Update the point.
@@ -170,12 +171,13 @@ impl<F: Function> Gradient<F> {
         Sscale: Storage<F::Field, Dyn>,
     {
         let eps = F::Field::EPSILON_SQRT;
+        let one: F::Field = convert(1.0);
 
         for i in 0..x.nrows() {
             let xi = x[i];
 
             // See the implementation of Jacobian for details on computing step size.
-            let magnitude = F::Field::one() / scale[i];
+            let magnitude = one / scale[i];
             let step = eps * xi.abs().max(magnitude);
 
             // Update the point.
@@ -260,12 +262,13 @@ impl<F: Function> Hessian<F> {
         Sscale: Storage<F::Field, Dyn>,
     {
         let eps = F::Field::EPSILON_CBRT;
+        let one: F::Field = convert(1.0);
 
         for i in 0..x.nrows() {
             let xi = x[i];
 
             // See the implementation of Jacobian for details on computing step size.
-            let magnitude = F::Field::one() / scale[i];
+            let magnitude = one / scale[i];
             let step = eps * xi.abs().max(magnitude);
 
             // Store the step for Hessian calculation.

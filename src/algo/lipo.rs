@@ -15,7 +15,6 @@ use log::{debug, trace};
 use nalgebra::{
     convert, try_convert, ComplexField, DimName, Dyn, IsContiguous, OVector, StorageMut, Vector, U1,
 };
-use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::core::{Domain, Function, Optimizer, Problem, Sample, Solver, System};
@@ -100,6 +99,7 @@ impl<P: Problem> Lipo<P> {
     /// Initializes LIPO solver with given options.
     pub fn with_options(p: &P, dom: &Domain<P::Field>, options: LipoOptions<P>, rng: Rng) -> Self {
         let dim = Dyn(dom.dim());
+        let zero = convert(0.0);
 
         let p_explore = options.p_explore.clamp(0.0, 1.0);
 
@@ -114,8 +114,8 @@ impl<P: Problem> Lipo<P> {
             xs: Vec::new(),
             ys: Vec::new(),
             best: 0,
-            k: P::Field::zero(),
-            k_inf: P::Field::zero(),
+            k: zero,
+            k_inf: zero,
             rng,
             p_explore,
             tmp: OVector::zeros_generic(dim, U1::name()),
@@ -127,11 +127,12 @@ impl<P: Problem> Lipo<P> {
 
     /// Resets the internal state of the solver.
     pub fn reset(&mut self) {
+        let zero = convert(0.0);
         self.xs.clear();
         self.ys.clear();
         self.best = 0;
-        self.k = P::Field::zero();
-        self.k_inf = P::Field::zero();
+        self.k = zero;
+        self.k_inf = zero;
         self.iter = 0;
     }
 
@@ -156,6 +157,8 @@ impl<P: Problem> Lipo<P> {
             ..
         } = self;
 
+        let one: P::Field = convert(1.0);
+
         if !xs.is_empty() {
             // By definition, the k estimation is done by finding a minimum k_l
             // from a sequence of ks, such that
@@ -179,9 +182,9 @@ impl<P: Problem> Lipo<P> {
                 debug!("|| x - xi || = {}", dist);
             }
 
-            let it = try_convert(((*k_inf).ln() / (P::Field::one() + alpha).ln()).ceil())
-                .unwrap_or_default() as i32;
-            *k = (P::Field::one() + alpha).powi(it);
+            let it =
+                try_convert(((*k_inf).ln() / (one + alpha).ln()).ceil()).unwrap_or_default() as i32;
+            *k = (one + alpha).powi(it);
 
             if !k.is_finite() {
                 return Err(LipoError::InfiniteLipschitzConstant);
@@ -267,7 +270,7 @@ where
             // Exploitation mode is allowed only when there is enough points
             // evaluated and the Lipschitz constant is estimated. Then there is
             // randomness involved in choosing whether we explore or exploit.
-            if !initialization && *k != F::Field::zero() && rng.f64() >= *p_explore {
+            if !initialization && *k != convert(0.0) && rng.f64() >= *p_explore {
                 debug!("exploitation mode");
 
                 let mut tmp_best = ys[*best];

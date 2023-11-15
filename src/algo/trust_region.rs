@@ -33,7 +33,6 @@ use nalgebra::{
     convert, storage::StorageMut, ComplexField, DimName, Dyn, IsContiguous, OMatrix, OVector,
     RealField, Vector, U1,
 };
-use num_traits::{One, Zero};
 use thiserror::Error;
 
 use crate::{
@@ -150,7 +149,7 @@ impl<P: Problem> TrustRegion<P> {
         let delta_init = match options.delta_init {
             DeltaInit::Fixed(fixed) => fixed,
             // Zero is recognized in the function `next`.
-            DeltaInit::Estimated => P::Field::zero(),
+            DeltaInit::Estimated => convert(0.0),
         };
         let scale = dom
             .scale()
@@ -181,7 +180,7 @@ impl<P: Problem> TrustRegion<P> {
     pub fn reset(&mut self) {
         self.delta = match self.options.delta_init {
             DeltaInit::Fixed(fixed) => fixed,
-            DeltaInit::Estimated => P::Field::zero(),
+            DeltaInit::Estimated => convert(0.0),
         };
         self.mu = convert(0.5);
         self.iter = 1;
@@ -246,6 +245,9 @@ impl<R: System> Solver<R> for TrustRegion<R> {
             ..
         } = self;
 
+        let one = convert(1.0);
+        let zero = convert(0.0);
+
         #[allow(clippy::needless_late_init)]
         let scaled_newton: &mut OVector<R::Field, Dyn>;
         let scale_inv2: &mut OVector<R::Field, Dyn>;
@@ -266,7 +268,7 @@ impl<R: System> Solver<R> for TrustRegion<R> {
 
         let rx_norm = rx.norm();
 
-        let estimate_delta = *delta == R::Field::zero();
+        let estimate_delta = *delta == zero;
         if estimate_delta {
             // Zero delta signifies that the initial delta is to be set
             // automatically and it has not been done yet.
@@ -280,8 +282,8 @@ impl<R: System> Solver<R> for TrustRegion<R> {
             // where K = 100. The approach is taken from GSL.
             for (j, col) in jac.column_iter().enumerate() {
                 temp[j] = col.norm();
-                if temp[j] == R::Field::zero() {
-                    temp[j] = R::Field::one();
+                if temp[j] == zero {
+                    temp[j] = one;
                 }
             }
             temp.component_mul_assign(x);
@@ -289,7 +291,7 @@ impl<R: System> Solver<R> for TrustRegion<R> {
             let factor = convert(100.0);
             *delta = temp.norm() * factor;
 
-            if *delta == R::Field::zero() {
+            if *delta == zero {
                 *delta = factor;
             }
         }
@@ -311,7 +313,7 @@ impl<R: System> Solver<R> for TrustRegion<R> {
                 "Newton step is invalid for ill-defined Jacobian (zero columns: {:?})",
                 jac.column_iter()
                     .enumerate()
-                    .filter(|(_, col)| col.norm() == R::Field::zero())
+                    .filter(|(_, col)| col.norm() == zero)
                     .map(|(i, _)| i)
                     .collect::<Vec<_>>()
             );
@@ -337,7 +339,7 @@ impl<R: System> Solver<R> for TrustRegion<R> {
 
             let grad_norm = grad_neg.norm();
 
-            if grad_norm == R::Field::zero() {
+            if grad_norm == zero {
                 // Gradient is zero, it is useless to compute the dogleg step.
                 // Instead, we take the Newton direction to the trust region
                 // boundary.
@@ -356,7 +358,7 @@ impl<R: System> Solver<R> for TrustRegion<R> {
                 // Compute D^(-2) (use p for storage).
                 scale_inv2 = p;
                 scale_inv2.copy_from(scale);
-                scale_inv2.apply(|s| *s = R::Field::one() / (*s * *s));
+                scale_inv2.apply(|s| *s = one / (*s * *s));
 
                 // Compute g = -D^(-2) grad F, the steepest descent direction in
                 // scaled space (use cauchy for storage).
@@ -454,7 +456,7 @@ impl<R: System> Solver<R> for TrustRegion<R> {
 
                     #[allow(clippy::suspicious_operation_groupings)]
                     let d = (b * b + a * c_neg).sqrt();
-                    let alpha = if b <= R::Field::zero() {
+                    let alpha = if b <= zero {
                         (-b + d) / a
                     } else {
                         c_neg / (b + d)
@@ -496,10 +498,10 @@ impl<R: System> Solver<R> for TrustRegion<R> {
                     // from the solution (i.e., for large || r(x) ||).
 
                     // Determine lambda.
-                    let d = if rx_norm >= R::Field::one() {
-                        R::Field::one() / rx_norm
+                    let d = if rx_norm >= one {
+                        one / rx_norm
                     } else {
-                        R::Field::one() + R::Field::one() / convert(*iter as f64)
+                        one + one / convert(*iter as f64)
                     };
 
                     let lambda = *mu * rx_norm.powf(d);
@@ -581,13 +583,13 @@ impl<R: System> Solver<R> for TrustRegion<R> {
             let deny = if allow_ascent {
                 // If ascent is allowed, then check only for zero, which would
                 // make the gain ratio calculation ill-defined.
-                predicted == R::Field::zero()
+                predicted == zero
             } else {
                 // If ascent is not allowed, test positivity of the predicted
                 // gain. Note that even if the actual reduction was positive,
                 // the step would be rejected anyway because the gain ratio
                 // would be negative.
-                predicted <= R::Field::zero()
+                predicted <= zero
             };
 
             if deny {
@@ -596,7 +598,7 @@ impl<R: System> Solver<R> for TrustRegion<R> {
                 } else {
                     debug!("predicted gain <= 0");
                 }
-                R::Field::zero()
+                zero
             } else {
                 let actual = rx_norm - rx_trial_norm;
                 let gain_ratio = actual / predicted;
@@ -606,7 +608,7 @@ impl<R: System> Solver<R> for TrustRegion<R> {
             }
         } else {
             debug!("trial step is invalid, gain ratio = 0");
-            R::Field::zero()
+            zero
         };
 
         // Decide if the step is accepted or not.
@@ -722,6 +724,9 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
             ..
         } = self;
 
+        let zero = convert(0.0);
+        let one = convert(1.0);
+
         #[allow(clippy::needless_late_init)]
         let scaled_newton: &mut OVector<F::Field, Dyn>;
         let scale_inv2_grad: &mut OVector<F::Field, Dyn>;
@@ -740,7 +745,7 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
         grad.compute(f, x, scale, fx);
         hes.compute(f, x, scale, fx);
 
-        let estimate_delta = *delta == F::Field::zero();
+        let estimate_delta = *delta == zero;
         if estimate_delta {
             *delta = grad.norm() * convert(0.1);
         }
@@ -763,7 +768,7 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
                 "Newton step is invalid for ill-defined Hessian (zero columns: {:?})",
                 hes.column_iter()
                     .enumerate()
-                    .filter(|(_, col)| col.norm() == F::Field::zero())
+                    .filter(|(_, col)| col.norm() == zero)
                     .map(|(i, _)| i)
                     .collect::<Vec<_>>()
             );
@@ -786,7 +791,7 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
 
             let grad_norm = grad_neg.norm();
 
-            if grad_norm == F::Field::zero() {
+            if grad_norm == zero {
                 // Gradient is zero, it is useless to compute the dogleg step.
                 // Instead, we take the Newton direction to the trust region
                 // boundary.
@@ -805,13 +810,13 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
                 // Compute || D^-1 grad || (use p for storage).
                 scale_inv2_grad = p;
                 scale_inv2_grad.copy_from(scale);
-                scale_inv2_grad.apply(|s| *s = F::Field::one() / *s);
+                scale_inv2_grad.apply(|s| *s = one / *s);
                 scale_inv2_grad.component_mul_assign(grad_neg);
                 let scale_inv_grad_norm = scale_inv2_grad.norm();
 
                 // Compute D^(-2) grad.
                 scale_inv2_grad.copy_from(scale);
-                scale_inv2_grad.apply(|s| *s = F::Field::one() / (*s * *s));
+                scale_inv2_grad.apply(|s| *s = one / (*s * *s));
                 scale_inv2_grad.component_mul_assign(grad_neg);
                 scale_inv2_grad.neg_mut();
 
@@ -825,11 +830,11 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
                 hes.mul_to(scale_inv2_grad, temp);
                 let quadratic_form = scale_inv2_grad.dot(temp);
 
-                let tau = if quadratic_form <= F::Field::zero() {
-                    F::Field::one()
+                let tau = if quadratic_form <= zero {
+                    one
                 } else {
                     // tau = min(|| D^-1 grad|| / delta * grad^T D^-2 H D^-2 grad, 1).
-                    (scale_inv_grad_norm.powi(3) / (*delta * quadratic_form)).min(F::Field::one())
+                    (scale_inv_grad_norm.powi(3) / (*delta * quadratic_form)).min(one)
                 };
 
                 let p = scale_inv2_grad;
@@ -902,7 +907,7 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
 
                     #[allow(clippy::suspicious_operation_groupings)]
                     let d = (b * b + a * c_neg).sqrt();
-                    let alpha = if b <= F::Field::zero() {
+                    let alpha = if b <= zero {
                         (-b + d) / a
                     } else {
                         c_neg / (b + d)
@@ -952,13 +957,13 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
             let deny = if allow_ascent {
                 // If ascent is allowed, then check only for zero, which would
                 // make the gain ratio calculation ill-defined.
-                predicted == F::Field::zero()
+                predicted == zero
             } else {
                 // If ascent is not allowed, test positivity of the predicted
                 // gain. Note that even if the actual reduction was positive,
                 // the step would be rejected anyway because the gain ratio
                 // would be negative.
-                predicted <= F::Field::zero()
+                predicted <= zero
             };
 
             if deny {
@@ -967,7 +972,7 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
                 } else {
                     debug!("predicted gain <= 0");
                 }
-                F::Field::zero()
+                zero
             } else {
                 let actual = fx - fx_trial;
                 let gain_ratio = actual / predicted;
@@ -977,7 +982,7 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
             }
         } else {
             debug!("trial step is invalid, gain ratio = 0");
-            F::Field::zero()
+            zero
         };
 
         // Decide if the step is accepted or not.
