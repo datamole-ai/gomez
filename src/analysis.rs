@@ -1,13 +1,12 @@
 //! Various supporting analyses.
 
 use nalgebra::{
-    convert, storage::StorageMut, ComplexField, DimName, Dyn, IsContiguous, OVector, RealField,
-    Vector, U1,
+    convert, storage::StorageMut, ComplexField, DimName, Dyn, IsContiguous, OVector, Vector, U1,
 };
 
 use crate::{
-    core::{Domain, RealField as _, System},
-    derivatives::Jacobian,
+    core::{Domain, RealField, System},
+    derivatives::{Jacobian, StepRule},
 };
 
 /// Estimates magnitude of the variable given lower and upper bounds.
@@ -55,7 +54,14 @@ where
 
     // Compute r'(x) in the initial point.
     r.eval(x, rx);
-    let jac1 = Jacobian::new(r, x, &scale, rx);
+    let jac1 = Jacobian::new(
+        r,
+        x,
+        &scale,
+        rx,
+        R::Field::EPSILON_SQRT,
+        StepRule::default(),
+    );
 
     // Compute Newton step.
     let mut p = rx.clone_owned();
@@ -70,7 +76,14 @@ where
 
     // Compute r'(x) after one Newton step.
     r.eval(x, rx);
-    let jac2 = Jacobian::new(r, x, &scale, rx);
+    let jac2 = Jacobian::new(
+        r,
+        x,
+        &scale,
+        rx,
+        R::Field::EPSILON_SQRT,
+        StepRule::default(),
+    );
 
     // Linear variables have no effect on the Jacobian matrix. They can be
     // recognized by observing no change in corresponding columns (i.e.,

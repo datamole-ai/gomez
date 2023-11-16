@@ -5,10 +5,10 @@ use std::iter::FromIterator;
 use fastrand::Rng;
 use na::{Dim, DimName};
 use nalgebra as na;
-use nalgebra::{storage::StorageMut, OVector, RealField, Vector};
+use nalgebra::{storage::StorageMut, OVector, Vector};
 
 use crate::analysis::estimate_magnitude_from_bounds;
-use crate::core::Sample;
+use crate::core::{RealField, Sample};
 
 /// Domain for a problem.
 #[derive(Clone)]
