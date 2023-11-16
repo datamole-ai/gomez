@@ -37,7 +37,7 @@ use thiserror::Error;
 
 use crate::{
     core::{Domain, Function, Optimizer, Problem, RealField as _, Solver, System},
-    derivatives::{Gradient, Hessian, Jacobian},
+    derivatives::{Gradient, Hessian, Jacobian, StepRule},
 };
 
 /// Specification for initial value of trust region size.
@@ -77,6 +77,14 @@ pub struct TrustRegionOptions<P: Problem> {
     /// Determines whether steps that increase the error can be accepted.
     /// Default: `true`.
     allow_ascent: bool,
+    /// Relative epsilon used in Jacobian and gradient computations.
+    /// Default: `sqrt(EPSILON)`.
+    eps_sqrt: P::Field,
+    /// Relative epsilon used in Hessian computations.
+    /// Default: `cbrt(EPSILON)`.
+    eps_cbrt: P::Field,
+    /// Step rule used in Jacobian, gradient and Hessian computations.
+    step_rule: StepRule,
     #[getset(skip)]
     prefer_greater_magnitude_in_cauchy: bool,
 }
@@ -111,6 +119,9 @@ impl<P: Problem> Default for TrustRegionOptions<P> {
             rejections_thresh: 10,
             allow_ascent: true,
             prefer_greater_magnitude_in_cauchy: false,
+            eps_sqrt: P::Field::EPSILON_SQRT,
+            eps_cbrt: P::Field::EPSILON_CBRT,
+            step_rule: StepRule::default(),
         }
     }
 }
@@ -225,6 +236,8 @@ impl<R: System> Solver<R> for TrustRegion<R> {
             rejections_thresh,
             allow_ascent,
             prefer_greater_magnitude_in_cauchy,
+            eps_sqrt,
+            step_rule,
             ..
         } = self.options;
 
@@ -264,7 +277,7 @@ impl<R: System> Solver<R> for TrustRegion<R> {
 
         // Compute r(x) and r'(x).
         r.eval(x, rx);
-        jac.compute(r, x, scale, rx);
+        jac.compute(r, x, scale, rx, eps_sqrt, step_rule);
 
         let rx_norm = rx.norm();
 
@@ -706,6 +719,9 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
             accept_thresh,
             rejections_thresh,
             allow_ascent,
+            eps_sqrt,
+            eps_cbrt,
+            step_rule,
             ..
         } = self.options;
 
@@ -742,8 +758,8 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
 
         // Compute f(x), grad f(x) and H(x).
         let mut fx = f.apply(x);
-        grad.compute(f, x, scale, fx);
-        hes.compute(f, x, scale, fx);
+        grad.compute(f, x, scale, fx, eps_sqrt, step_rule);
+        hes.compute(f, x, scale, fx, eps_cbrt, step_rule);
 
         let estimate_delta = *delta == zero;
         if estimate_delta {

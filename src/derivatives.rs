@@ -5,10 +5,10 @@ use std::ops::Deref;
 use nalgebra::{
     convert,
     storage::{Storage, StorageMut},
-    ComplexField, DimName, Dyn, IsContiguous, OMatrix, OVector, RealField, Vector, U1,
+    DimName, Dyn, IsContiguous, OMatrix, OVector, Vector, U1,
 };
 
-use crate::core::{Function, Problem, RealField as _, System};
+use crate::core::{Function, Problem, RealField, System};
 
 /// Jacobian matrix of a system of equations.
 #[derive(Debug)]
@@ -35,6 +35,8 @@ impl<R: System> Jacobian<R> {
         x: &mut Vector<R::Field, Dyn, Sx>,
         scale: &Vector<R::Field, Dyn, Sscale>,
         rx: &Vector<R::Field, Dyn, Srx>,
+        eps: R::Field,
+        step_rule: StepRule,
     ) -> Self
     where
         Sx: StorageMut<R::Field, Dyn> + IsContiguous,
@@ -42,7 +44,7 @@ impl<R: System> Jacobian<R> {
         Srx: Storage<R::Field, Dyn>,
     {
         let mut jac = Self::zeros(r);
-        jac.compute(r, x, scale, rx);
+        jac.compute(r, x, scale, rx, eps, step_rule);
         jac
     }
 
@@ -61,36 +63,19 @@ impl<R: System> Jacobian<R> {
         x: &mut Vector<R::Field, Dyn, Sx>,
         scale: &Vector<R::Field, Dyn, Sscale>,
         rx: &Vector<R::Field, Dyn, Srx>,
+        eps_rel: R::Field,
+        step_rule: StepRule,
     ) -> &mut Self
     where
         Sx: StorageMut<R::Field, Dyn> + IsContiguous,
         Sscale: Storage<R::Field, Dyn>,
         Srx: Storage<R::Field, Dyn>,
     {
-        let eps = R::Field::EPSILON_SQRT;
         let one: R::Field = convert(1.0);
 
         for (j, mut col) in self.jac.column_iter_mut().enumerate() {
             let xj = x[j];
-
-            // Compute the step size. We would like to have the step as small as
-            // possible (to be as close to the zero -- i.e., real derivative --
-            // as possible). But at the same time, very small step could cause
-            // r(x + e_j * step_j) ~= r(x) with very small number of good
-            // digits.
-            //
-            // A reasonable way to balance these competing needs is to scale
-            // each component by x_j itself. To avoid problems when x_j is close
-            // to zero, it is modified to take the typical magnitude instead.
-            //
-            // Note that you can find in the literature that the rule for step
-            // size is actually eps * max(|xj|, magnitude) * sign(xj), that is,
-            // the step has the same sign as xj. But that caused scaled
-            // Rosenbrock test to fail for trust region algorithm. This is very
-            // anecdotal evidence and I would like to understand why the sign of
-            // the step is important.
-            let magnitude = one / scale[j];
-            let step = eps * xj.abs().max(magnitude);
+            let step = step_rule.apply(xj, one / scale[j], eps_rel);
 
             // Update the point.
             x[j] = xj + step;
@@ -140,13 +125,15 @@ impl<F: Function> Gradient<F> {
         x: &mut Vector<F::Field, Dyn, Sx>,
         scale: &Vector<F::Field, Dyn, Sscale>,
         fx: F::Field,
+        eps_rel: F::Field,
+        step_rule: StepRule,
     ) -> Self
     where
         Sx: StorageMut<F::Field, Dyn> + IsContiguous,
         Sscale: Storage<F::Field, Dyn>,
     {
         let mut grad = Self::zeros(f);
-        grad.compute(f, x, scale, fx);
+        grad.compute(f, x, scale, fx, eps_rel, step_rule);
         grad
     }
 
@@ -165,20 +152,18 @@ impl<F: Function> Gradient<F> {
         x: &mut Vector<F::Field, Dyn, Sx>,
         scale: &Vector<F::Field, Dyn, Sscale>,
         fx: F::Field,
+        eps_rel: F::Field,
+        step_rule: StepRule,
     ) -> &mut Self
     where
         Sx: StorageMut<F::Field, Dyn> + IsContiguous,
         Sscale: Storage<F::Field, Dyn>,
     {
-        let eps = F::Field::EPSILON_SQRT;
         let one: F::Field = convert(1.0);
 
         for i in 0..x.nrows() {
             let xi = x[i];
-
-            // See the implementation of Jacobian for details on computing step size.
-            let magnitude = one / scale[i];
-            let step = eps * xi.abs().max(magnitude);
+            let step = step_rule.apply(xi, one / scale[i], eps_rel);
 
             // Update the point.
             x[i] = xi + step;
@@ -231,13 +216,15 @@ impl<F: Function> Hessian<F> {
         x: &mut Vector<F::Field, Dyn, Sx>,
         scale: &Vector<F::Field, Dyn, Sscale>,
         fx: F::Field,
+        eps_rel: F::Field,
+        step_rule: StepRule,
     ) -> Self
     where
         Sx: StorageMut<F::Field, Dyn> + IsContiguous,
         Sscale: Storage<F::Field, Dyn>,
     {
         let mut hes = Self::zeros(f);
-        hes.compute(f, x, scale, fx);
+        hes.compute(f, x, scale, fx, eps_rel, step_rule);
         hes
     }
 
@@ -256,20 +243,18 @@ impl<F: Function> Hessian<F> {
         x: &mut Vector<F::Field, Dyn, Sx>,
         scale: &Vector<F::Field, Dyn, Sscale>,
         fx: F::Field,
+        eps_rel: F::Field,
+        step_rule: StepRule,
     ) -> &mut Self
     where
         Sx: StorageMut<F::Field, Dyn> + IsContiguous,
         Sscale: Storage<F::Field, Dyn>,
     {
-        let eps = F::Field::EPSILON_CBRT;
         let one: F::Field = convert(1.0);
 
         for i in 0..x.nrows() {
             let xi = x[i];
-
-            // See the implementation of Jacobian for details on computing step size.
-            let magnitude = one / scale[i];
-            let step = eps * xi.abs().max(magnitude);
+            let step = step_rule.apply(xi, one / scale[i], eps_rel);
 
             // Store the step for Hessian calculation.
             self.steps[i] = step;
@@ -328,6 +313,65 @@ impl<F: Problem> Deref for Hessian<F> {
     }
 }
 
+/// Rule for computing the step in finite difference method.
+#[derive(Debug, Default, Clone, Copy)]
+#[non_exhaustive]
+pub enum StepRule {
+    /// _eps<sub>rel</sub>_
+    Fixed,
+    /// _eps<sub>rel</sub> * x_
+    ValueScaled,
+    /// _eps<sub>rel</sub> * |x|_
+    #[default]
+    AbsValueScaled,
+    /// _eps<sub>rel</sub> * max(|x|, mag) * sign(x)_
+    ValueOrMagScaled,
+    /// _eps<sub>rel</sub> * max(|x|, mag)_
+    AbsValueOrMagScaled,
+    /// _eps<sub>rel</sub> * max(|x|, mag) * x_
+    ValueOrMagTimesValueScaled,
+    /// _eps<sub>rel</sub> * max(|x|, mag) * |x|_
+    AbsValueOrMagTimesAbsValueScaled,
+}
+
+impl StepRule {
+    fn apply<T: RealField + Copy>(&self, x: T, mag: T, eps_rel: T) -> T {
+        // Compute the step size. We would like to have the step as small as
+        // possible (to be as close to the zero -- i.e., real derivative -- as
+        // possible). But at the same time, very small step could cause r(x +
+        // e_j * step_j) ~= r(x) with very small number of good digits.
+        //
+        // We implement multiple rules. One is just using fixed relative epsilon
+        // value. The other use some form of scaling by the variable value,
+        // which balances the competing needs mentioned in the first paragraph.
+        // Some of them also utilize the information of estimated typical
+        // magnitude of the variable, mostly to avoid problems when the variable
+        // value is close to zero. Some methods inherit the sign of the variable
+        // value for the step size, while the others always use a positive
+        // value.
+
+        let one = convert(1.0);
+        let scale = match self {
+            StepRule::Fixed => one,
+            StepRule::ValueScaled => x,
+            StepRule::AbsValueScaled => x.abs(),
+            StepRule::ValueOrMagScaled => x.abs().max(mag) * one.copysign(x),
+            StepRule::AbsValueOrMagScaled => x.abs().max(mag),
+            StepRule::ValueOrMagTimesValueScaled => x.abs().max(mag) * x,
+            StepRule::AbsValueOrMagTimesAbsValueScaled => x.abs().max(mag) * x.abs(),
+        };
+
+        // Since some of the rules use the value of x directly, we need to check
+        // for cases when the value is zero, in which case we need to fallback
+        // to some non-zero step size.
+        if scale != convert(0.0) {
+            eps_rel * scale
+        } else {
+            eps_rel
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,7 +415,14 @@ mod tests {
 
         let func = ExtendedRosenbrock::new(2);
         func.eval(&x, &mut fx);
-        let jac = Jacobian::new(&func, &mut x, &scale, &fx);
+        let jac = Jacobian::new(
+            &func,
+            &mut x,
+            &scale,
+            &fx,
+            f64::EPSILON_SQRT,
+            StepRule::default(),
+        );
 
         let expected = dmatrix![-40.0, 10.0; -1.0, 0.0];
         assert_abs_diff_eq!(&*jac, &expected, epsilon = 10e-6);
@@ -385,7 +436,14 @@ mod tests {
 
         let func = ExtendedPowell::new(4);
         func.eval(&x, &mut fx);
-        let jac = Jacobian::new(&func, &mut x, &scale, &fx);
+        let jac = Jacobian::new(
+            &func,
+            &mut x,
+            &scale,
+            &fx,
+            f64::EPSILON_SQRT,
+            StepRule::default(),
+        );
 
         let expected = dmatrix![
             1.0, 10.0, 0.0, 0.0;
@@ -403,7 +461,14 @@ mod tests {
 
         let func = MixedVars;
         let fx = func.apply(&x);
-        let grad = Gradient::new(&func, &mut x, &scale, fx);
+        let grad = Gradient::new(
+            &func,
+            &mut x,
+            &scale,
+            fx,
+            f64::EPSILON_SQRT,
+            StepRule::default(),
+        );
 
         let expected = dvector![3.0, 30.0];
         assert_abs_diff_eq!(&*grad, &expected, epsilon = 10e-6);
@@ -416,7 +481,14 @@ mod tests {
 
         let func = MixedVars;
         let fx = func.apply(&x);
-        let hes = Hessian::new(&func, &mut x, &scale, fx);
+        let hes = Hessian::new(
+            &func,
+            &mut x,
+            &scale,
+            fx,
+            f64::EPSILON_CBRT,
+            StepRule::default(),
+        );
 
         let expected = dmatrix![2.0, 1.0; 1.0, -18.0];
         assert_abs_diff_eq!(&*hes, &expected, epsilon = 10e-3);
