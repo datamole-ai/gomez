@@ -1,6 +1,6 @@
 [package]
 name = "gomez"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Petr Nevyhoštěný <petr.nevyhosteny@gmail.com>"]
 description = "Framework and implementation for mathematical optimization and solving non-linear systems of equations."
 documentation = "https://docs.rs/gomez/"
