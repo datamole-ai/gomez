@@ -11,6 +11,7 @@ mod tests {
     use super::*;
     use std::ptr;
 
+    #[allow(clippy::approx_constant)]
     #[test]
     fn vectors() {
         unsafe {
