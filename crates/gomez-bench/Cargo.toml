@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 divan = "0.1.2"
-gomez = { path = "..", features = ["testing"] }
-gsl-wrapper = { path = "../gsl-wrapper" }
+gomez = { path = "../gomez", features = ["testing"] }
+gsl-wrapper = { path = "../../gsl-wrapper" }
 
 [[bench]]
 name = "main"

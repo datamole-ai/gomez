@@ -20,4 +20,4 @@ jobs:
         run: cargo test
 
       - name: Publish package
-        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }} --package gomez

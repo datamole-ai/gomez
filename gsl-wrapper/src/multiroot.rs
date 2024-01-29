@@ -8,18 +8,13 @@ use crate::function::Function;
 use crate::status::GslStatus;
 use crate::vec::{as_slice, GslVec};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SolverType {
+    #[default]
     HybridScaled,
     Hybrid,
     DiscreteNewton,
     Broyden,
-}
-
-impl Default for SolverType {
-    fn default() -> Self {
-        SolverType::HybridScaled
-    }
 }
 
 impl SolverType {
