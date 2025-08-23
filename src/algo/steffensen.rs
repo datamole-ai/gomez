@@ -74,7 +74,7 @@ impl<P: Problem> Steffensen<P> {
 }
 
 /// Error returned from [`Steffensen`] solver.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum SteffensenError {
     /// System is not one-dimensional.
     #[error("system is not one-dimensional")]

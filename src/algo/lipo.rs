@@ -202,7 +202,7 @@ impl<P: Problem> Lipo<P> {
 }
 
 /// Error returned from [`Lipo`] solver.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum LipoError {
     /// Error when no potential minimizer is found after number sampling trials.
     #[error("potential minimizer was not found after specified number of trials")]
