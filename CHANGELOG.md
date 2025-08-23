@@ -1,9 +1,18 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2025-08-23
+
+[41e3c48](41e3c486469694b9b06d774f1a0b165441e5efa0)...[71b21b8](71b21b8be776ae7f9f2ed2a96ca45af6fec41f28)
+
+### Features
+
+- Make error types clonable ([8c2e798](../../commit/8c2e798e8813a9e4bad951392a7874aeaa619a74))
+- Implement "no progress" indication in optimizers ([71b21b8](../../commit/71b21b8be776ae7f9f2ed2a96ca45af6fec41f28))
+
 ## [0.5.0] - 2023-11-22
 
-[2ee24f0](2ee24f06175bcf8796390c7d2a0f199cbd555424)...[2ee24f0](2ee24f06175bcf8796390c7d2a0f199cbd555424)
+[a352b8e](a352b8e3204d9474fb6fb1ab29a9f9b71eecaef8)...[2ee24f0](2ee24f06175bcf8796390c7d2a0f199cbd555424)
 
 ### Bug Fixes
 
