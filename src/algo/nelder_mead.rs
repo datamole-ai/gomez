@@ -139,6 +139,7 @@ pub struct NelderMead<P: Problem> {
     simplex: Vec<OVector<P::Field, Dyn>>,
     errors: Vec<P::Field>,
     sort_perm: Vec<usize>,
+    simplex_collapsed: bool,
 }
 
 impl<P: Problem> NelderMead<P> {
@@ -168,6 +169,7 @@ impl<P: Problem> NelderMead<P> {
             simplex: Vec::with_capacity(dom.dim() + 1),
             errors: Vec::with_capacity(dom.dim() + 1),
             sort_perm: Vec::with_capacity(dom.dim() + 1),
+            simplex_collapsed: false,
         }
     }
 
@@ -177,6 +179,7 @@ impl<P: Problem> NelderMead<P> {
         self.simplex.clear();
         self.errors.clear();
         self.sort_perm.clear();
+        self.simplex_collapsed = false;
     }
 }
 
@@ -219,8 +222,15 @@ impl<F: Function> NelderMead<F> {
             reflection,
             expansion,
             contraction,
+            simplex_collapsed,
             ..
         } = self;
+
+        if *simplex_collapsed {
+            // Simplex collapsed but the optimizer was asked to do another
+            // iteration which it cannot do.
+            return Err(NelderMeadError::SimplexCollapsed);
+        }
 
         let n = dom.dim();
 
@@ -439,7 +449,7 @@ impl<F: Function> NelderMead<F> {
 
             if numer / denom <= eps {
                 debug!("simplex collapsed: {} / {} <= {}", numer, denom, eps);
-                return Err(NelderMeadError::SimplexCollapsed);
+                *simplex_collapsed = true;
             }
         }
 
@@ -462,6 +472,10 @@ impl<F: Function> Optimizer<F> for NelderMead<F> {
         Sx: StorageMut<F::Field, Dyn> + IsContiguous,
     {
         self.next_inner(f, dom, x)
+    }
+
+    fn no_progress(&self) -> bool {
+        self.simplex_collapsed
     }
 }
 
@@ -587,7 +601,7 @@ mod tests {
         // From this initial point, Nelder-Mead converges to a point which is
         // outside the bounds.
         assert!(matches!(
-            solve(&f, &dom, solver, x, 5, eps),
+            solve(&f, &dom, solver, x, 6, eps),
             Err(TestingError::Inner(NelderMeadError::SimplexCollapsed))
         ));
     }

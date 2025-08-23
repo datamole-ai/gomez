@@ -41,7 +41,7 @@ fn main() -> Result<(), String> {
                 state.fx(),
                 state.x()
             );
-            state.fx() <= tolerance || state.iter() >= 100
+            state.fx() <= tolerance || state.no_progress() || state.iter() >= 100
         })
         .map_err(|error| format!("{error}"))?;
 

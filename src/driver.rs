@@ -459,6 +459,7 @@ impl<'a, F: Function, A: Optimizer<F>> OptimizerDriver<'a, F, A> {
                 x: &self.x,
                 fx: self.fx,
                 iter,
+                no_progress: self.algo.no_progress(),
             };
 
             if stop(state) {
@@ -480,6 +481,7 @@ pub struct OptimizerIterState<'a, F: Problem> {
     x: &'a OVector<F::Field, Dyn>,
     fx: F::Field,
     iter: usize,
+    no_progress: bool,
 }
 
 impl<'a, F: Problem> OptimizerIterState<'a, F> {
@@ -496,6 +498,11 @@ impl<'a, F: Problem> OptimizerIterState<'a, F> {
     /// Returns the current iteration number.
     pub fn iter(&self) -> usize {
         self.iter
+    }
+
+    /// Returns true when the optimizer cannot make further progress.
+    pub fn no_progress(&self) -> bool {
+        self.no_progress
     }
 }
 
@@ -628,5 +635,23 @@ mod tests {
             .build();
 
         assert_eq!(optimizer.x(), &[1.0, 0.0]);
+    }
+
+    #[test]
+    fn optimizer_no_progress() {
+        let x0 = vec![-2.0, 2.0];
+
+        let f = Sphere::new(2);
+        let mut optimizer = OptimizerDriver::builder(&f)
+            .with_initial(x0)
+            .with_algo(NelderMead::new)
+            .build();
+
+        let tolerance = 1e-6;
+        let (_, value) = optimizer
+            .find(|state| state.iter() >= 100 || state.no_progress())
+            .unwrap();
+
+        assert!(value <= tolerance);
     }
 }
