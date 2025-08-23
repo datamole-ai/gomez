@@ -181,7 +181,7 @@ impl<P: Problem> NelderMead<P> {
 }
 
 /// Error returned from [`NelderMead`] solver.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum NelderMeadError {
     /// Simplex collapsed so it is impossible to make any progress.
     #[error("simplex collapsed")]

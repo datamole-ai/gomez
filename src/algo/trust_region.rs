@@ -200,7 +200,7 @@ impl<P: Problem> TrustRegion<P> {
 }
 
 /// Error returned from [`TrustRegion`] solver.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum TrustRegionError {
     /// Could not take any valid step.
     #[error("neither newton nor steepest descent step can be taken from the point")]
