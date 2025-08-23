@@ -88,6 +88,7 @@ pub struct Lipo<P: Problem> {
     x_tmp: OVector<P::Field, Dyn>,
     local_optimizer: NelderMead<P>,
     iter: usize,
+    potential_minimizer_not_found: bool,
 }
 
 impl<P: Problem> Lipo<P> {
@@ -122,6 +123,7 @@ impl<P: Problem> Lipo<P> {
             x_tmp: OVector::zeros_generic(dim, U1::name()),
             local_optimizer: NelderMead::new(p, dom),
             iter: 0,
+            potential_minimizer_not_found: false,
         }
     }
 
@@ -134,6 +136,7 @@ impl<P: Problem> Lipo<P> {
         self.k = zero;
         self.k_inf = zero;
         self.iter = 0;
+        self.potential_minimizer_not_found = false;
     }
 
     /// Adds an externally evaluated point into the collection of evaluations.
@@ -243,8 +246,13 @@ where
             x_tmp,
             local_optimizer,
             iter,
+            potential_minimizer_not_found,
             ..
         } = self;
+
+        if *potential_minimizer_not_found {
+            return Err(LipoError::PotentialMinimizerNotFound);
+        }
 
         if xs.is_empty() {
             debug!("first iteration, just evaluating");
@@ -328,7 +336,8 @@ where
                         "did not find any potential minimizer after {} sampling trials",
                         sampling_trials
                     );
-                    return Err(LipoError::PotentialMinimizerNotFound);
+                    *potential_minimizer_not_found = true;
+                    return Ok(ys[*best]);
                 }
 
                 if potential_minimizer == PotentialMinimizer::Best {
@@ -398,6 +407,10 @@ where
         Sx: StorageMut<<F>::Field, Dyn> + IsContiguous,
     {
         self.next_inner(f, dom, x)
+    }
+
+    fn no_progress(&self) -> bool {
+        self.potential_minimizer_not_found
     }
 }
 

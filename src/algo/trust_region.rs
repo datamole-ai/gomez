@@ -146,6 +146,7 @@ pub struct TrustRegion<P: Problem> {
     temp: OVector<P::Field, Dyn>,
     iter: usize,
     rejections_cnt: usize,
+    no_progress: Option<TrustRegionError>,
 }
 
 impl<P: Problem> TrustRegion<P> {
@@ -184,6 +185,7 @@ impl<P: Problem> TrustRegion<P> {
             temp: OVector::zeros_generic(dim, U1::name()),
             iter: 1,
             rejections_cnt: 0,
+            no_progress: None,
         }
     }
 
@@ -196,6 +198,7 @@ impl<P: Problem> TrustRegion<P> {
         self.mu = convert(0.5);
         self.iter = 1;
         self.rejections_cnt = 0;
+        self.no_progress = None;
     }
 }
 
@@ -737,8 +740,15 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
             p,
             temp,
             rejections_cnt,
+            no_progress,
             ..
         } = self;
+
+        if let Some(error) = no_progress {
+            // There has been no progress but the optimizer was asked to do
+            // another iteration which it cannot do.
+            return Err(error.clone());
+        }
 
         let zero = convert(0.0);
         let one = convert(1.0);
@@ -820,7 +830,8 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
                     );
                     StepType::ScaledNewton
                 } else {
-                    return Err(TrustRegionError::NoValidStep);
+                    self.no_progress = Some(TrustRegionError::NoValidStep);
+                    return Ok(fx);
                 }
             } else {
                 // Compute || D^-1 grad || (use p for storage).
@@ -938,7 +949,8 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
                     debug!("take dogleg (factor = {}): {:?}", alpha, p.as_slice());
                     StepType::Dogleg
                 } else {
-                    return Err(TrustRegionError::NoValidStep);
+                    self.no_progress = Some(TrustRegionError::NoValidStep);
+                    return Ok(fx);
                 }
             }
         };
@@ -1022,7 +1034,8 @@ impl<F: Function> Optimizer<F> for TrustRegion<F> {
                     "solving reached the rejections count limit ({})",
                     rejections_thresh
                 );
-                return Err(TrustRegionError::NoProgress);
+                self.no_progress = Some(TrustRegionError::NoProgress);
+                return Ok(fx);
             }
         }
 

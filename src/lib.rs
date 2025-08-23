@@ -95,7 +95,7 @@
 //!     .build();
 //!
 //! let (x, fx) = optimizer
-//!     .find(|state| state.fx() <= 1e-6 || state.iter() >= 100)
+//!     .find(|state| state.fx() <= 1e-6 || state.no_progress())
 //!     .expect("optimizer error");
 //!
 //! println!("f(x) = {fx}\tx = {x:?}");

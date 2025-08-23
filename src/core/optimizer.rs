@@ -80,4 +80,19 @@ pub trait Optimizer<F: Function> {
     ) -> Result<F::Field, Self::Error>
     where
         Sx: StorageMut<F::Field, Dyn> + IsContiguous;
+
+    /// Indicates that the optimizer cannot make further progress.
+    ///
+    /// Generally, an optimizer can get stuck in a local optimum and in that
+    /// case cannot continue. This indication can be used in the stopping
+    /// criterion if a local optimum is satisfactory result.
+    ///
+    /// When an algorithm detects in an optimization iteration that it cannot
+    /// make progress, it should defer returning an error and instead set an
+    /// inner flag. This way, the user can react on the no-progress indication.
+    /// If another iteration is requested, then the algorithm should return an
+    /// error.
+    fn no_progress(&self) -> bool {
+        false
+    }
 }
